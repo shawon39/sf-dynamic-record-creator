@@ -1,0 +1,52 @@
+<!-- dynamicCreatorWithDropdown.html -->
+<template>
+  <lightning-card title="Dynamic Record Creator">
+    <div class="slds-var-p-around_small">
+      <lightning-combobox
+        name="objectList"
+        label="Select Object"
+        placeholder="Choose Object"
+        options={objectOptions}
+        value={selectedObject}
+        onchange={handleObjectChange}>
+      </lightning-combobox>
+    </div>
+
+    <!-- Once an object is selected, show its create form -->
+    <template if:true={selectedObject}>
+      <lightning-card title="New {selectedObject}">
+        <template if:true={fieldsArray.length}>
+          <div class="slds-var-p-horizontal_small slds-var-m-bottom_small">
+            <lightning-progress-bar value={progressValue}></lightning-progress-bar>
+            <p class="slds-text-body_small">
+              {filledCount} of {totalFields} fields completed
+            </p>
+          </div>
+
+          <lightning-record-edit-form
+            object-api-name={selectedObject}
+            record-type-id={recordTypeId}
+            mode="create"
+            onsuccess={handleSuccess}
+            onerror={handleError}
+          >
+            <lightning-messages></lightning-messages>
+            <template for:each={fieldsArray} for:item="fld">
+              <lightning-input-field
+                key={fld.apiName}
+                field-name={fld.apiName}
+                onchange={handleFieldChange}
+              ></lightning-input-field>
+            </template>
+            <div class="slds-var-p-around_small">
+              <lightning-button type="submit" label="Save"></lightning-button>
+            </div>
+          </lightning-record-edit-form>
+        </template>
+        <template if:false={fieldsArray.length}>
+          <lightning-spinner alternative-text="Loading metadata..."></lightning-spinner>
+        </template>
+      </lightning-card>
+    </template>
+  </lightning-card>
+</template> 
