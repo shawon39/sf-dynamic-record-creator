@@ -7,6 +7,7 @@ import getObjectRecordTypes from '@salesforce/apex/FieldAnalysisService.getObjec
 import getObjectFields from '@salesforce/apex/FieldAnalysisService.getObjectFields';
 import analyzeSelectedFields from '@salesforce/apex/FieldAnalysisService.analyzeSelectedFields';
 import generateFieldAnalysisReport from '@salesforce/apex/FieldAnalysisService.generateFieldAnalysisReport';
+import analyzeFieldsAndGenerateReport from '@salesforce/apex/FieldAnalysisService.analyzeFieldsAndGenerateReport';
 import createAnalysisRecord from '@salesforce/apex/FieldAnalysisService.createAnalysisRecord';
 
 export default class DynamicFieldAnalyzer extends LightningElement {
@@ -40,23 +41,29 @@ export default class DynamicFieldAnalyzer extends LightningElement {
     // Wire Salesforce Objects
     @wire(getAllSalesforceObjects)
     wiredObjects({ data, error }) {
+        console.log('wiredObjects called with data:', data, 'error:', error);
         if (data) {
+            console.log('Successfully loaded', data.length, 'objects');
             this.objectOptions = data.map(obj => ({
                 label: obj.label,
                 value: obj.value
             }));
+            console.log('Mapped objectOptions:', this.objectOptions);
         } else if (error) {
             console.error('Error loading objects:', error);
+            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load Salesforce objects: ' + this.getErrorMessage(error), 'error');
         }
     }
     
     // Handle Object Selection
     handleObjectChange(event) {
+        console.log('handleObjectChange called with:', event.detail.value);
         this.selectedObject = event.detail.value;
         this.resetObjectDependentData();
         
         if (this.selectedObject) {
+            console.log('Loading record types for:', this.selectedObject);
             this.loadRecordTypes();
         }
     }
@@ -76,10 +83,12 @@ export default class DynamicFieldAnalyzer extends LightningElement {
     
     // Load Record Types for Selected Object
     async loadRecordTypes() {
+        console.log('loadRecordTypes started for:', this.selectedObject);
         this.isLoadingRecordTypes = true;
         
         try {
             const recordTypes = await getObjectRecordTypes({ objectName: this.selectedObject });
+            console.log('Received record types:', recordTypes);
             
             if (recordTypes && recordTypes.length > 0) {
                 this.recordTypeOptions = recordTypes.map(rt => ({
@@ -113,8 +122,10 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             
         } catch (error) {
             console.error('Error loading record types:', error);
+            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load record types: ' + this.getErrorMessage(error), 'error');
         } finally {
+            console.log('loadRecordTypes finished, isLoadingRecordTypes set to false');
             this.isLoadingRecordTypes = false;
         }
     }
@@ -142,6 +153,7 @@ export default class DynamicFieldAnalyzer extends LightningElement {
     
     // Load Fields for Selected Object and Record Type
     async loadFields() {
+        console.log('loadFields started for object:', this.selectedObject, 'recordType:', this.selectedRecordType);
         this.isLoadingFields = true;
         
         try {
@@ -149,6 +161,7 @@ export default class DynamicFieldAnalyzer extends LightningElement {
                 objectName: this.selectedObject, 
                 recordTypeId: this.selectedRecordType 
             });
+            console.log('Received fields:', fields);
             
             if (fields) {
                 this.availableFields = fields.map(field => ({
@@ -159,8 +172,10 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             
         } catch (error) {
             console.error('Error loading fields:', error);
+            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load fields: ' + this.getErrorMessage(error), 'error');
         } finally {
+            console.log('loadFields finished');
             this.isLoadingFields = false;
         }
     }
@@ -186,18 +201,26 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.isAnalyzing = true;
         
         try {
-            // Get detailed field analysis
+            console.log('Starting field analysis with params:', {
+                objectName: this.selectedObject,
+                recordTypeId: this.selectedRecordType,
+                recordTypeName: this.selectedRecordTypeName,
+                selectedFields: this.selectedFields
+            });
+            
+            // Get both analysis details and report in one call to avoid data loss
+            this.analysisReport = await analyzeFieldsAndGenerateReport({
+                objectName: this.selectedObject,
+                recordTypeId: this.selectedRecordType,
+                recordTypeName: this.selectedRecordTypeName,
+                selectedFieldNames: this.selectedFields
+            });
+            
+            // Also get the field analysis details separately for saving functionality
             this.fieldAnalysisDetails = await analyzeSelectedFields({
                 objectName: this.selectedObject,
                 recordTypeId: this.selectedRecordType,
                 selectedFieldNames: this.selectedFields
-            });
-            
-            // Generate human-readable report
-            this.analysisReport = await generateFieldAnalysisReport({
-                objectName: this.selectedObject,
-                recordTypeName: this.selectedRecordTypeName,
-                fieldDetails: this.fieldAnalysisDetails
             });
             
             this.showToast('Success', `Analysis completed for ${this.selectedFields.length} field(s).`, 'success');

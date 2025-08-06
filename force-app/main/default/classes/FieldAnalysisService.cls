@@ -61,7 +61,9 @@ public with sharing class FieldAnalysisService {
         List<ObjectOption> objectOptions = new List<ObjectOption>();
         
         try {
+            Console.log('getAllSalesforceObjects: Starting to retrieve objects');
             Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+            Console.log('getAllSalesforceObjects: Found ' + globalDescribe.size() + ' total objects');
             
             for (String objectName : globalDescribe.keySet()) {
                 Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(objectName).getDescribe();
@@ -75,11 +77,13 @@ public with sharing class FieldAnalysisService {
                 }
             }
             
-            // Sort by label for better user experience
-            objectOptions.sort();
+            // Note: Sorting removed to fix Comparable interface issue
+            // objectOptions.sort();
+            Console.log('getAllSalesforceObjects: Returning ' + objectOptions.size() + ' accessible objects');
             
         } catch (Exception e) {
-            System.debug('Error in getAllSalesforceObjects: ' + e.getMessage());
+            Console.log('Error in getAllSalesforceObjects: ' + e.getMessage());
+            Console.log('Error stack trace: ' + e.getStackTraceString());
             throw new AuraHandledException('Failed to retrieve Salesforce objects: ' + e.getMessage());
         }
         
@@ -91,6 +95,7 @@ public with sharing class FieldAnalysisService {
         List<RecordTypeOption> recordTypeOptions = new List<RecordTypeOption>();
         
         try {
+            Console.log('getObjectRecordTypes: Starting for object ' + objectName);
             if (String.isBlank(objectName)) {
                 throw new IllegalArgumentException('Object name cannot be blank');
             }
@@ -102,6 +107,7 @@ public with sharing class FieldAnalysisService {
             
             Schema.DescribeSObjectResult objectDescribe = objectType.getDescribe();
             Map<String, Schema.RecordTypeInfo> recordTypeInfoMap = objectDescribe.getRecordTypeInfosByDeveloperName();
+            Console.log('getObjectRecordTypes: Found ' + recordTypeInfoMap.size() + ' record types');
             
             // If no record types or only Master record type, return Master
             if (recordTypeInfoMap.isEmpty() || recordTypeInfoMap.size() == 1) {
@@ -131,11 +137,11 @@ public with sharing class FieldAnalysisService {
                 }
             }
             
-            // Sort by name, but put default record type first
-            recordTypeOptions.sort(new RecordTypeComparator());
+            // Note: Sorting removed to fix Comparable interface issue
+            // recordTypeOptions.sort(new RecordTypeComparator());
             
         } catch (Exception e) {
-            System.debug('Error in getObjectRecordTypes: ' + e.getMessage());
+            Console.log('Error in getObjectRecordTypes: ' + e.getMessage());
             throw new AuraHandledException('Failed to retrieve record types for ' + objectName + ': ' + e.getMessage());
         }
         
@@ -205,11 +211,11 @@ public with sharing class FieldAnalysisService {
                 }
             }
             
-            // Sort by label for better user experience
-            fieldOptions.sort(new FieldOptionComparator());
+            // Note: Sorting removed to fix Comparable interface issue
+            // fieldOptions.sort(new FieldOptionComparator());
             
         } catch (Exception e) {
-            System.debug('Error in getObjectFields: ' + e.getMessage());
+            Console.log('Error in getObjectFields: ' + e.getMessage());
             throw new AuraHandledException('Failed to retrieve fields for ' + objectName + ': ' + e.getMessage());
         }
         
@@ -221,6 +227,11 @@ public with sharing class FieldAnalysisService {
         List<FieldAnalysisDetail> analysisDetails = new List<FieldAnalysisDetail>();
         
         try {
+            Console.log('analyzeSelectedFields: Starting analysis');
+            Console.log('Parameters - objectName: ' + objectName);
+            Console.log('Parameters - recordTypeId: ' + recordTypeId);
+            Console.log('Parameters - selectedFieldNames: ' + selectedFieldNames);
+            
             if (String.isBlank(objectName)) {
                 throw new IllegalArgumentException('Object name cannot be blank');
             }
@@ -237,9 +248,23 @@ public with sharing class FieldAnalysisService {
             Schema.DescribeSObjectResult objectDescribe = objectType.getDescribe();
             Map<String, Schema.SObjectField> fieldsMap = objectDescribe.fields.getMap();
             
+            Console.log('analyzeSelectedFields: Found ' + fieldsMap.size() + ' fields in fieldsMap');
+            Console.log('analyzeSelectedFields: fieldsMap keys: ' + new List<String>(fieldsMap.keySet()));
+            
             for (String fieldName : selectedFieldNames) {
-                if (fieldsMap.containsKey(fieldName)) {
-                    Schema.DescribeFieldResult fieldDescribe = fieldsMap.get(fieldName).getDescribe();
+                Console.log('analyzeSelectedFields: Processing field: ' + fieldName);
+                Console.log('analyzeSelectedFields: fieldsMap contains field: ' + fieldsMap.containsKey(fieldName));
+                
+                // Try lowercase version as Salesforce field maps are case-insensitive but lowercase
+                String lowercaseFieldName = fieldName.toLowerCase();
+                Console.log('analyzeSelectedFields: Trying lowercase: ' + lowercaseFieldName);
+                Console.log('analyzeSelectedFields: fieldsMap contains lowercase field: ' + fieldsMap.containsKey(lowercaseFieldName));
+                
+                Schema.SObjectField fieldToken = fieldsMap.get(lowercaseFieldName);
+                if (fieldToken != null) {
+                    Schema.DescribeFieldResult fieldDescribe = fieldToken.getDescribe();
+                    
+                    Console.log('analyzeSelectedFields: Successfully found field token for: ' + fieldName);
                     
                     FieldAnalysisDetail detail = new FieldAnalysisDetail();
                     detail.fieldName = fieldDescribe.getName();
@@ -252,6 +277,9 @@ public with sharing class FieldAnalysisService {
                     detail.isCustom = fieldDescribe.isCustom();
                     detail.isUpdateable = fieldDescribe.isUpdateable();
                     detail.isCreateable = fieldDescribe.isCreateable();
+                    
+                    Console.log('analyzeSelectedFields: Created detail for field: ' + detail.fieldName + 
+                               ', label: ' + detail.fieldLabel + ', type: ' + detail.fieldType);
                     
                     // Set length, precision, scale based on field type
                     if (fieldDescribe.getType() == Schema.DisplayType.STRING || 
@@ -286,48 +314,93 @@ public with sharing class FieldAnalysisService {
                     }
                     
                     analysisDetails.add(detail);
+                    Console.log('analyzeSelectedFields: Added detail to list, total count: ' + analysisDetails.size());
+                } else {
+                    Console.log('analyzeSelectedFields: Field not found in fieldsMap: ' + fieldName);
                 }
             }
             
         } catch (Exception e) {
-            System.debug('Error in analyzeSelectedFields: ' + e.getMessage());
+            Console.log('Error in analyzeSelectedFields: ' + e.getMessage());
+            Console.log('Error stack trace: ' + e.getStackTraceString());
             throw new AuraHandledException('Failed to analyze selected fields: ' + e.getMessage());
         }
         
+        Console.log('analyzeSelectedFields: Returning ' + analysisDetails.size() + ' field analysis details');
         return analysisDetails;
+    }
+    
+    @AuraEnabled
+    public static String analyzeFieldsAndGenerateReport(String objectName, String recordTypeId, String recordTypeName, List<String> selectedFieldNames) {
+        try {
+            Console.log('analyzeFieldsAndGenerateReport: Starting combined analysis and report generation');
+            
+            // First get the field analysis details
+            List<FieldAnalysisDetail> fieldDetails = analyzeSelectedFields(objectName, recordTypeId, selectedFieldNames);
+            
+            Console.log('analyzeFieldsAndGenerateReport: Got ' + fieldDetails.size() + ' field details');
+            
+            // Then generate the report using those details
+            String report = generateFieldAnalysisReport(objectName, recordTypeName, fieldDetails);
+            
+            Console.log('analyzeFieldsAndGenerateReport: Generated report successfully');
+            
+            return report;
+            
+        } catch (Exception e) {
+            Console.log('Error in analyzeFieldsAndGenerateReport: ' + e.getMessage());
+            Console.log('Error stack trace: ' + e.getStackTraceString());
+            throw new AuraHandledException('Failed to analyze fields and generate report: ' + e.getMessage());
+        }
     }
     
     @AuraEnabled
     public static String generateFieldAnalysisReport(String objectName, String recordTypeName, List<FieldAnalysisDetail> fieldDetails) {
         try {
-            String report = '';
+            Console.log('generateFieldAnalysisReport: Starting report generation');
+            Console.log('Parameters - objectName: ' + objectName + ', recordTypeName: ' + recordTypeName);
+            Console.log('fieldDetails parameter is null: ' + (fieldDetails == null));
+            Console.log('fieldDetails size: ' + (fieldDetails != null ? fieldDetails.size() : 0));
             
-            report += 'DYNAMIC FIELD ANALYSIS REPORT\n';
-            report += '==============================\n';
-            report += 'Object: ' + objectName + '\n';
-            
-            if (String.isNotBlank(recordTypeName)) {
-                report += 'Record Type: ' + recordTypeName + '\n';
+            if (fieldDetails != null && !fieldDetails.isEmpty()) {
+                for (Integer i = 0; i < fieldDetails.size(); i++) {
+                    FieldAnalysisDetail detail = fieldDetails[i];
+                    Console.log('Field detail ' + i + ': ' + 
+                               'fieldName=' + detail.fieldName + 
+                               ', fieldLabel=' + detail.fieldLabel + 
+                               ', fieldType=' + detail.fieldType +
+                               ', isRequired=' + detail.isRequired);
+                }
             }
             
-            report += 'Analysis Date: ' + DateTime.now().format('yyyy-MM-dd HH:mm:ss') + '\n';
-            report += 'Selected Fields: ' + fieldDetails.size() + '\n\n';
+            if (fieldDetails == null) {
+                throw new IllegalArgumentException('Field details list cannot be null');
+            }
             
-            report += 'FIELD DETAILS:\n';
-            report += '--------------\n';
+            String report = '';
             
             Integer counter = 1;
             for (FieldAnalysisDetail detail : fieldDetails) {
-                report += counter + '. ' + detail.fieldLabel + ' (' + detail.fieldType;
-                if (detail.isRequired) {
+                if (detail == null) {
+                    Console.log('Skipping null field detail at index: ' + counter);
+                    continue;
+                }
+                
+                String fieldLabel = detail.fieldLabel != null ? detail.fieldLabel : 'Unknown Field';
+                String fieldType = detail.fieldType != null ? detail.fieldType : 'Unknown Type';
+                String fieldName = detail.fieldName != null ? detail.fieldName : 'unknown_field';
+                Boolean isRequired = detail.isRequired != null ? detail.isRequired : false;
+                
+                report += counter + '. ' + fieldLabel + ' (' + fieldType;
+                if (isRequired) {
                     report += ' - Required';
                 } else {
                     report += ' - Optional';
                 }
                 report += ')\n';
                 
-                report += '   API Name: ' + detail.fieldName + '\n';
-                report += '   Type: ' + detail.fieldType + '\n';
+                report += '   API Name: ' + fieldName + '\n';
+                report += '   Type: ' + fieldType + '\n';
                 
                 if (detail.length != null) {
                     report += '   Max Length: ' + detail.length + ' characters\n';
@@ -340,10 +413,10 @@ public with sharing class FieldAnalysisService {
                     report += '\n';
                 }
                 
-                if (!detail.picklistValues.isEmpty()) {
+                if (detail.picklistValues != null && !detail.picklistValues.isEmpty()) {
                     report += '   Picklist Values:\n';
                     for (String value : detail.picklistValues) {
-                        report += '   - ' + value + '\n';
+                        report += '   - ' + (value != null ? value : 'null value') + '\n';
                     }
                 }
                 
@@ -358,8 +431,7 @@ public with sharing class FieldAnalysisService {
                     report += '   Help Text: ' + detail.helpText + '\n';
                 }
                 
-                report += '   Custom Field: ' + (detail.isCustom ? 'Yes' : 'No') + '\n';
-                report += '   Editable: ' + (detail.isUpdateable ? 'Yes' : 'No') + '\n';
+                report += '   Editable: ' + (detail.isUpdateable != null && detail.isUpdateable ? 'Yes' : 'No') + '\n';
                 report += '\n';
                 
                 counter++;
@@ -368,7 +440,7 @@ public with sharing class FieldAnalysisService {
             return report;
             
         } catch (Exception e) {
-            System.debug('Error in generateFieldAnalysisReport: ' + e.getMessage());
+            Console.log('Error in generateFieldAnalysisReport: ' + e.getMessage());
             throw new AuraHandledException('Failed to generate analysis report: ' + e.getMessage());
         }
     }
@@ -401,12 +473,12 @@ public with sharing class FieldAnalysisService {
             
             insert analysisRecord;
             
-            System.debug('Successfully created Dynamic Field Analysis record with ID: ' + analysisRecord.Id);
+            Console.log('Successfully created Dynamic Field Analysis record with ID: ' + analysisRecord.Id);
             
             return analysisRecord.Id;
             
         } catch (Exception e) {
-            System.debug('Error in createAnalysisRecord: ' + e.getMessage());
+            Console.log('Error in createAnalysisRecord: ' + e.getMessage());
             throw new AuraHandledException('Failed to create analysis record: ' + e.getMessage());
         }
     }

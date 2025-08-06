@@ -2,74 +2,8 @@
 import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getAllCreateableObjects from '@salesforce/apex/DynamicObjectService.getAllCreateableObjects';
+import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
-
-// Add this constant to define allowed fields for each object
-const sfObjectsFields = {
-    Account: [
-        'Name',
-        'AccountNumber',
-        'Type',
-        'Industry',
-        'AnnualRevenue',
-        'Rating',
-        'Phone',
-        'Website',
-        'BillingAddress',
-        'Description'
-    ],
-    Opportunity: [
-        'Name',
-        'AccountId',
-        'Amount',
-        'CloseDate',
-        'StageName',
-        'Probability',
-        'Type',
-        'LeadSource',
-        'ExpectedRevenue',
-        'Description'
-    ],
-    Contact: [
-        'FirstName',
-        'LastName',
-        'AccountId',
-        'Title',
-        'Email',
-        'Phone',
-        'MobilePhone',
-        'LeadSource',
-        'MailingAddress',
-        'Department'
-    ]
-};
-
-// Instructions for each object type - simplified to plain text
-const INSTRUCTIONS = {
-    Account: [
-        { id: 1, text: 'Enter company name and account number', fields: ['Name', 'AccountNumber'] },
-        { id: 2, text: 'Select account type and industry', fields: ['Type', 'Industry'] },
-        { id: 3, text: 'Add annual revenue and rating', fields: ['AnnualRevenue', 'Rating'] },
-        { id: 4, text: 'Provide phone number and website', fields: ['Phone', 'Website'] },
-        { id: 5, text: 'Enter the billing address', fields: ['BillingAddress'] },
-        { id: 6, text: 'Add relevant description', fields: ['Description'] }
-    ],
-    Contact: [
-        { id: 1, text: 'Enter first name, last name, and title', fields: ['FirstName', 'LastName', 'Title'] },
-        { id: 2, text: 'Link contact to an account', fields: ['AccountId'] },
-        { id: 3, text: 'Add email and phone numbers', fields: ['Email', 'Phone', 'MobilePhone'] },
-        { id: 4, text: 'Complete address and department details', fields: ['MailingAddress', 'Department', 'LeadSource'] }
-    ],
-    Opportunity: [
-        { id: 1, text: 'Enter opportunity name and link to account', fields: ['Name', 'AccountId'] },
-        { id: 2, text: 'Set amount and expected revenue', fields: ['Amount', 'ExpectedRevenue'] },
-        { id: 3, text: 'Define the close date', fields: ['CloseDate'] },
-        { id: 4, text: 'Select current stage and probability', fields: ['StageName', 'Probability'] },
-        { id: 5, text: 'Categorize the opportunity type', fields: ['Type'] },
-        { id: 6, text: 'Identify the lead source', fields: ['LeadSource'] },
-        { id: 7, text: 'Add description and notes', fields: ['Description'] }
-    ]
-};
 
 export default class DynamicCreatorWithDropdown extends LightningElement {
     @track objectOptions = [];
@@ -79,6 +13,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @track filledFields = new Set();
     @track completedSteps = new Set();
     @track isLoadingFields = false;
+    @track objectFieldsData = null;
+    @track dynamicInstructions = [];
 
     // Load dropdown options on init
     @wire(getAllCreateableObjects)
@@ -100,27 +36,94 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.filledFields.clear();
         this.completedSteps.clear();
         this.fieldsArray = []; // Clear fields array immediately
+        this.objectFieldsData = null;
+        this.dynamicInstructions = [];
         this.isLoadingFields = true; // Set loading state
-        // getObjectInfo wire (below) will fire because selectedObject changed
+        
+        if (this.selectedObject) {
+            this.loadObjectFieldsData();
+        }
     }
 
-    // Wire adapter to fetch object metadata automatically
+    // Load field data from Dynamic_Field_Analysis__c
+    loadObjectFieldsData() {
+        getObjectFieldsData({ objectName: this.selectedObject })
+            .then(result => {
+                console.log('Field data received:', result);
+                this.objectFieldsData = result;
+                this.recordTypeId = result.recordTypeId;
+                
+                // Create fields array with API names
+                this.fieldsArray = result.fields.map(fieldName => ({ apiName: fieldName }));
+                
+                // Use custom instructions or generate generic ones as fallback
+                this.setupInstructions();
+                
+                this.isLoadingFields = false;
+            })
+            .catch(error => {
+                console.error('Error loading field data:', error);
+                this.showToast('Error', 'Failed to load field data: ' + error.body?.message, 'error');
+                this.fieldsArray = [];
+                this.isLoadingFields = false;
+            });
+    }
+
+    // Setup instructions - use custom instructions if available, otherwise generate generic ones
+    setupInstructions() {
+        if (!this.objectFieldsData) {
+            this.dynamicInstructions = [];
+            return;
+        }
+
+        // Check if we have custom instructions
+        if (this.objectFieldsData.instructions && this.objectFieldsData.instructions.length > 0) {
+            console.log('Using custom instructions from database:', this.objectFieldsData.instructions);
+            this.dynamicInstructions = this.objectFieldsData.instructions;
+        } else {
+            console.log('No custom instructions found, generating generic ones');
+            this.generateGenericInstructions();
+        }
+    }
+
+    // Generate generic instructions based on available fields (fallback)
+    generateGenericInstructions() {
+        if (!this.objectFieldsData || !this.objectFieldsData.fields) {
+            this.dynamicInstructions = [];
+            return;
+        }
+
+        const fields = this.objectFieldsData.fields;
+        const instructions = [];
+        
+        // Group fields into logical steps (4 fields per step)
+        const fieldsPerStep = 4;
+        let stepId = 1;
+        
+        for (let i = 0; i < fields.length; i += fieldsPerStep) {
+            const stepFields = fields.slice(i, i + fieldsPerStep);
+            const fieldLabels = stepFields.join(', ');
+            
+            instructions.push({
+                id: stepId,
+                text: `Complete ${fieldLabels}`,
+                fields: stepFields
+            });
+            stepId++;
+        }
+        
+        this.dynamicInstructions = instructions;
+        console.log('Generated generic instructions:', this.dynamicInstructions);
+    }
+
+    // Wire adapter to fetch object metadata for record type (if needed)
     @wire(getObjectInfo, { objectApiName: '$selectedObject' })
     wiredInfo({ data, error }) {
-        if (data) {
+        if (data && !this.recordTypeId) {
+            // Use default record type if not already set from field analysis
             this.recordTypeId = data.defaultRecordTypeId;
-            // Only use fields from sfObjectsFields for the selected object
-            const allowedFields = sfObjectsFields[this.selectedObject] || [];
-            this.fieldsArray = allowedFields
-                .map(fieldName => data.fields[fieldName])
-                .filter(f => f && f.createable && f.updateable && !f.customRestricted)
-                .map(f => ({ apiName: f.apiName }));
-            this.isLoadingFields = false; // Fields loaded successfully
         } else if (error) {
-            console.error('Error loading metadata', error);
-            this.fieldsArray = [];
-            this.isLoadingFields = false; // Stop loading on error
-            this.showToast('Error', 'Failed to load object metadata: ' + error.body?.message, 'error');
+            console.error('Error loading object metadata', error);
         }
     }
 
@@ -136,7 +139,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
 
     // Get instructions for current object
     get currentInstructions() {
-        return INSTRUCTIONS[this.selectedObject] || [];
+        return this.dynamicInstructions || [];
     }
 
     // Get progress indicator steps
@@ -208,6 +211,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.filledFields.clear();
         this.completedSteps.clear();
         this.fieldsArray = [];
+        this.objectFieldsData = null;
+        this.dynamicInstructions = [];
         this.isLoadingFields = false;
     }
 
@@ -222,6 +227,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.filledFields.clear();
         this.completedSteps.clear();
         this.fieldsArray = [];
+        this.objectFieldsData = null;
+        this.dynamicInstructions = [];
         this.isLoadingFields = false;
     }
 

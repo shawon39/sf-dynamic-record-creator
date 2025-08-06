@@ -118,25 +118,20 @@
                             <!-- Analysis Results -->
                             <template if:true={analysisReport}>
                                 <div class="analysis-results">
-                                    <!-- Analysis Summary -->
-                                    <div class="slds-box slds-theme_shade slds-var-m-bottom_medium">
-                                        <h3 class="slds-text-heading_small slds-var-m-bottom_x-small">Analysis Summary</h3>
-                                        <div class="slds-grid slds-gutters">
-                                            <div class="slds-col">
-                                                <span class="slds-text-body_small slds-text-color_weak">Object:</span>
-                                                <div class="slds-text-body_regular">{selectedObject}</div>
+                                    <!-- Object and Record Type Info -->
+                                    <div class="slds-var-m-bottom_small">
+                                        <div class="slds-text-body_regular slds-text-font_monospace">
+                                            <strong>Object: {selectedObject}</strong>
+                                        </div>
+                                        <template if:true={selectedRecordTypeName}>
+                                            <div class="slds-text-body_regular slds-text-font_monospace">
+                                                <strong>Record Type: {selectedRecordTypeName}</strong>
                                             </div>
-                                            <template if:true={selectedRecordTypeName}>
-                                                <div class="slds-col">
-                                                    <span class="slds-text-body_small slds-text-color_weak">Record Type:</span>
-                                                    <div class="slds-text-body_regular">{selectedRecordTypeName}</div>
-                                                </div>
-                                            </template>
+                                        </template>
+                                        <div class="slds-text-body_regular slds-text-font_monospace slds-var-m-top_x-small">
+                                            <strong>FIELD DETAILS:</strong>
                                         </div>
-                                        <div class="slds-var-m-top_x-small">
-                                            <span class="slds-text-body_small slds-text-color_weak">Fields Analyzed:</span>
-                                            <span class="slds-badge slds-theme_info slds-var-m-left_x-small">{selectedFields.length}</span>
-                                        </div>
+                                        <div class="slds-var-m-top_x-small"></div>
                                     </div>
 
                                     <!-- Detailed Analysis Report -->

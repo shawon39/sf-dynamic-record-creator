@@ -1,0 +1,45 @@
+.instruction-item {
+    border-left: 4px solid #0176d3;
+    transition: all 0.2s ease;
+}
+
+.instruction-item:hover {
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+.step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 2rem;
+}
+
+.field-pill {
+    margin: 0.125rem;
+}
+
+.instructions-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.slds-badge_brand {
+    background-color: #0176d3;
+    color: white;
+    font-weight: bold;
+    min-width: 1.5rem;
+    text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .slds-size_1-of-12 {
+        flex: 0 0 auto;
+        width: auto;
+    }
+    
+    .slds-size_10-of-12 {
+        flex: 1;
+    }
+}
