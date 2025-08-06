@@ -1,5 +1,5 @@
 public with sharing class DynamicObjectService {
-    public class ObjectOption implements Comparable {
+    public class ObjectOption {
         @AuraEnabled public String label;
         @AuraEnabled public String value;
         public ObjectOption(String label, String value) {
@@ -7,24 +7,24 @@ public with sharing class DynamicObjectService {
             this.value = value;
         }
         
-        public Integer compareTo(Object other) {
-            ObjectOption otherOption = (ObjectOption) other;
-            return this.label.toLowerCase().compareTo(otherOption.label.toLowerCase());
-        }
     }
 
     @AuraEnabled(cacheable=true)
     public static List<ObjectOption> getAllCreateableObjects() {
-        Map<String, Schema.SObjectType> gd = Schema.getGlobalDescribe();
+        // Only allow these three objects
         List<ObjectOption> opts = new List<ObjectOption>();
-        for (Schema.SObjectType sObjType : gd.values()) {
-            Schema.DescribeSObjectResult dr = sObjType.getDescribe();
+        Map<String, Schema.SObjectType> gd = Schema.getGlobalDescribe();
+        Map<String, String> allowed = new Map<String, String>{
+            'Account' => 'Account',
+            'Opportunity' => 'Opportunity',
+            'Contact' => 'Contact'
+        };
+        for (String objName : allowed.keySet()) {
+            Schema.DescribeSObjectResult dr = gd.get(objName).getDescribe();
             if (dr.isCreateable()) {
                 opts.add(new ObjectOption(dr.getLabel(), dr.getName()));
             }
         }
-        // Sort by label
-        opts.sort();
         return opts;
     }
 } 

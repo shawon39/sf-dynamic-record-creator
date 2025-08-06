@@ -1,0 +1,38 @@
+{
+  "Account": [
+    "Name",
+    "AccountNumber",
+    "Type",
+    "Industry",
+    "AnnualRevenue",
+    "Rating",
+    "Phone",
+    "Website",
+    "BillingAddress",
+    "Description"
+  ],
+  "Opportunity": [
+    "Name",
+    "AccountId",
+    "Amount",
+    "CloseDate",
+    "StageName",
+    "Probability",
+    "Type",
+    "LeadSource",
+    "ExpectedRevenue",
+    "Description"
+  ],
+  "Contact": [
+    "FirstName",
+    "LastName",
+    "AccountId",
+    "Title",
+    "Email",
+    "Phone",
+    "MobilePhone",
+    "LeadSource",
+    "MailingAddress",
+    "Department"
+  ]
+} 
