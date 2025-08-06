@@ -245,8 +245,31 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.instructions = [...this.instructions, newInstruction];
     }
 
-    handleEditInstruction(event) {
-        const stepId = event.target.dataset.id;
+    handleMenuAction(event) {
+        const action = event.detail.value;
+        const stepId = event.currentTarget.dataset.id;
+        
+        console.log(`Menu action: ${action} for instruction: ${stepId}`);
+        
+        switch (action) {
+            case 'edit':
+                this.handleEditInstruction(stepId);
+                break;
+            case 'moveup':
+                this.handleMoveInstruction(stepId, 'moveup');
+                break;
+            case 'movedown':
+                this.handleMoveInstruction(stepId, 'movedown');
+                break;
+            case 'delete':
+                this.handleDeleteInstruction(stepId);
+                break;
+            default:
+                console.warn('Unknown menu action:', action);
+        }
+    }
+
+    handleEditInstruction(stepId) {
         this.instructions = this.instructions.map(inst => ({
             ...inst,
             isEditing: inst.id === stepId,
@@ -321,9 +344,7 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.updatePositionFlags();
     }
 
-    handleMoveInstruction(event) {
-        const stepId = event.target.dataset.id;
-        const direction = event.detail.value;
+    handleMoveInstruction(stepId, direction) {
         const currentIndex = this.instructions.findIndex(inst => inst.id === stepId);
         
         if (direction === 'moveup' && currentIndex > 0) {
@@ -345,9 +366,7 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.updatePositionFlags();
     }
 
-    handleDeleteInstruction(event) {
-        const stepId = event.target.dataset.id;
-        
+    handleDeleteInstruction(stepId) {
         // Remove from list
         this.instructions = this.instructions.filter(inst => inst.id !== stepId);
         
@@ -430,17 +449,28 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             if (this.instructions.length > 0) {
                 console.log('Processing instructions for save:', this.instructions);
                 
+                // Auto-commit any instructions still in editing mode with valid content
+                this.instructions = this.instructions.map(inst => {
+                    const hasValidText = inst.text && typeof inst.text === 'string' && inst.text.trim().length > 0;
+                    const hasValidStepNumber = inst.stepNumber && typeof inst.stepNumber === 'number' && inst.stepNumber > 0;
+                    
+                    // Auto-commit editing instructions that have valid content
+                    if (inst.isEditing && hasValidText && hasValidStepNumber) {
+                        return { ...inst, isEditing: false };
+                    }
+                    return inst;
+                });
+                
                 const instructionsToSave = this.instructions
                     .filter(inst => {
-                        // More robust filtering: must not be editing, must have valid text and step number
+                        // Filter: must have valid text and step number (editing state no longer matters)
                         const hasValidText = inst.text && typeof inst.text === 'string' && inst.text.trim().length > 0;
                         const hasValidStepNumber = inst.stepNumber && typeof inst.stepNumber === 'number' && inst.stepNumber > 0;
-                        const isNotEditing = !inst.isEditing;
                         
                         console.log(`Instruction ${inst.id}: text="${inst.text}", stepNumber=${inst.stepNumber}, isEditing=${inst.isEditing}`);
-                        console.log(`Valid text: ${hasValidText}, Valid step: ${hasValidStepNumber}, Not editing: ${isNotEditing}`);
+                        console.log(`Valid text: ${hasValidText}, Valid step: ${hasValidStepNumber}`);
                         
-                        return hasValidText && hasValidStepNumber && isNotEditing;
+                        return hasValidText && hasValidStepNumber;
                     })
                     .map(inst => ({
                         id: inst.isNew ? null : inst.id,

@@ -291,27 +291,27 @@
                                                             value="edit" 
                                                             label="Edit"
                                                             data-id={instruction.id}
-                                                            onselect={handleEditInstruction}>
+                                                            onselect={handleMenuAction}>
                                                         </lightning-menu-item>
                                                         <lightning-menu-item 
                                                             value="moveup" 
                                                             label="Move Up"
                                                             data-id={instruction.id}
-                                                            onselect={handleMoveInstruction}
+                                                            onselect={handleMenuAction}
                                                             disabled={instruction.isFirst}>
                                                         </lightning-menu-item>
                                                         <lightning-menu-item 
                                                             value="movedown" 
                                                             label="Move Down"
                                                             data-id={instruction.id}
-                                                            onselect={handleMoveInstruction}
+                                                            onselect={handleMenuAction}
                                                             disabled={instruction.isLast}>
                                                         </lightning-menu-item>
                                                         <lightning-menu-item 
                                                             value="delete" 
                                                             label="Delete"
                                                             data-id={instruction.id}
-                                                            onselect={handleDeleteInstruction}>
+                                                            onselect={handleMenuAction}>
                                                         </lightning-menu-item>
                                                     </lightning-button-menu>
                                                 </template>
