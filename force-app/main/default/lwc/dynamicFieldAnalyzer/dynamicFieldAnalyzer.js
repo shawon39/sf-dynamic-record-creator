@@ -1,35 +1,41 @@
 import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
-// Import Apex methods
+// Import Apex methods for field analysis
 import getAllSalesforceObjects from '@salesforce/apex/FieldAnalysisService.getAllSalesforceObjects';
 import getObjectRecordTypes from '@salesforce/apex/FieldAnalysisService.getObjectRecordTypes';
 import getObjectFields from '@salesforce/apex/FieldAnalysisService.getObjectFields';
-import analyzeSelectedFields from '@salesforce/apex/FieldAnalysisService.analyzeSelectedFields';
-import generateFieldAnalysisReport from '@salesforce/apex/FieldAnalysisService.generateFieldAnalysisReport';
 import analyzeFieldsAndGenerateReport from '@salesforce/apex/FieldAnalysisService.analyzeFieldsAndGenerateReport';
 import createAnalysisRecord from '@salesforce/apex/FieldAnalysisService.createAnalysisRecord';
 
+// Import Apex methods for instruction management
+import saveInstructions from '@salesforce/apex/InstructionManagerService.saveInstructions';
+
 export default class DynamicFieldAnalyzer extends LightningElement {
     
-    // Object Selection
+    // Step Management
+    @track currentStep = 'step1';
+    
+    // Object Selection (Step 1)
     @track objectOptions = [];
     @track selectedObject = '';
-    
-    // Record Type Selection
     @track recordTypeOptions = [];
     @track selectedRecordType = '';
     @track selectedRecordTypeName = '';
     @track selectedRecordTypeDescription = '';
     @track showRecordTypeSelector = false;
     
-    // Field Selection
+    // Field Selection & Analysis (Step 2)
     @track availableFields = [];
     @track selectedFields = [];
-    
-    // Analysis Results
     @track analysisReport = '';
     @track fieldAnalysisDetails = [];
+    
+    // Instructions (Step 3)
+    @track instructions = [];
+    @track fieldOptionsForInstructions = [];
+    nextStepNumber = 1;
+    nextTempId = 1;
     
     // Loading States
     @track isLoadingObjects = false;
@@ -38,37 +44,40 @@ export default class DynamicFieldAnalyzer extends LightningElement {
     @track isAnalyzing = false;
     @track isSaving = false;
     
+    // Data persistence for the complete analysis
+    analysisRecordId = null;
+
+    // Step computed properties
+    get isStep1() { return this.currentStep === 'step1'; }
+    get isStep2() { return this.currentStep === 'step2'; }
+    get isStep3() { return this.currentStep === 'step3'; }
+    get isStep4() { return this.currentStep === 'step4'; }
+
     // Wire Salesforce Objects
     @wire(getAllSalesforceObjects)
     wiredObjects({ data, error }) {
-        console.log('wiredObjects called with data:', data, 'error:', error);
         if (data) {
-            console.log('Successfully loaded', data.length, 'objects');
             this.objectOptions = data.map(obj => ({
                 label: obj.label,
                 value: obj.value
             }));
-            console.log('Mapped objectOptions:', this.objectOptions);
         } else if (error) {
             console.error('Error loading objects:', error);
-            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load Salesforce objects: ' + this.getErrorMessage(error), 'error');
         }
     }
+
+    // ========== STEP 1: OBJECT SELECTION ==========
     
-    // Handle Object Selection
     handleObjectChange(event) {
-        console.log('handleObjectChange called with:', event.detail.value);
         this.selectedObject = event.detail.value;
         this.resetObjectDependentData();
         
         if (this.selectedObject) {
-            console.log('Loading record types for:', this.selectedObject);
             this.loadRecordTypes();
         }
     }
     
-    // Reset data when object changes
     resetObjectDependentData() {
         this.recordTypeOptions = [];
         this.selectedRecordType = '';
@@ -79,16 +88,18 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.selectedFields = [];
         this.analysisReport = '';
         this.fieldAnalysisDetails = [];
+        this.instructions = [];
+        this.fieldOptionsForInstructions = [];
+        this.nextStepNumber = 1;
+        this.nextTempId = 1;
+        this.analysisRecordId = null;
     }
     
-    // Load Record Types for Selected Object
     async loadRecordTypes() {
-        console.log('loadRecordTypes started for:', this.selectedObject);
         this.isLoadingRecordTypes = true;
         
         try {
             const recordTypes = await getObjectRecordTypes({ objectName: this.selectedObject });
-            console.log('Received record types:', recordTypes);
             
             if (recordTypes && recordTypes.length > 0) {
                 this.recordTypeOptions = recordTypes.map(rt => ({
@@ -104,7 +115,6 @@ export default class DynamicFieldAnalyzer extends LightningElement {
                     this.selectedRecordTypeName = recordTypes[0].label;
                     this.selectedRecordTypeDescription = recordTypes[0].description;
                     this.showRecordTypeSelector = false;
-                    this.loadFields();
                 } else {
                     // Multiple record types - show selector
                     this.showRecordTypeSelector = true;
@@ -115,22 +125,18 @@ export default class DynamicFieldAnalyzer extends LightningElement {
                         this.selectedRecordType = defaultRT.value;
                         this.selectedRecordTypeName = defaultRT.label;
                         this.selectedRecordTypeDescription = defaultRT.description;
-                        this.loadFields();
                     }
                 }
             }
             
         } catch (error) {
             console.error('Error loading record types:', error);
-            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load record types: ' + this.getErrorMessage(error), 'error');
         } finally {
-            console.log('loadRecordTypes finished, isLoadingRecordTypes set to false');
             this.isLoadingRecordTypes = false;
         }
     }
     
-    // Handle Record Type Selection
     handleRecordTypeChange(event) {
         this.selectedRecordType = event.detail.value;
         
@@ -141,19 +147,16 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             this.selectedRecordTypeDescription = selectedRT.description;
         }
         
-        // Reset field selection when record type changes
+        // Reset dependent data when record type changes
         this.availableFields = [];
         this.selectedFields = [];
         this.analysisReport = '';
-        
-        if (this.selectedRecordType) {
-            this.loadFields();
-        }
+        this.instructions = [];
     }
+
+    // ========== STEP 2: FIELD ANALYSIS ==========
     
-    // Load Fields for Selected Object and Record Type
     async loadFields() {
-        console.log('loadFields started for object:', this.selectedObject, 'recordType:', this.selectedRecordType);
         this.isLoadingFields = true;
         
         try {
@@ -161,7 +164,6 @@ export default class DynamicFieldAnalyzer extends LightningElement {
                 objectName: this.selectedObject, 
                 recordTypeId: this.selectedRecordType 
             });
-            console.log('Received fields:', fields);
             
             if (fields) {
                 this.availableFields = fields.map(field => ({
@@ -172,17 +174,20 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             
         } catch (error) {
             console.error('Error loading fields:', error);
-            console.error('Error details:', JSON.stringify(error));
             this.showToast('Error', 'Failed to load fields: ' + this.getErrorMessage(error), 'error');
         } finally {
-            console.log('loadFields finished');
             this.isLoadingFields = false;
         }
     }
     
-    // Handle Field Selection in Dual Listbox
     handleFieldSelection(event) {
         this.selectedFields = event.detail.value;
+        
+        // Update field options for instructions
+        this.fieldOptionsForInstructions = this.selectedFields.map(field => ({
+            label: field,
+            value: field
+        }));
         
         // Clear analysis when field selection changes
         if (this.analysisReport) {
@@ -191,8 +196,7 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         }
     }
     
-    // Analyze Selected Fields
-    async handleAnalyzeFields() {
+    async handleQuickAnalyze() {
         if (!this.selectedFields || this.selectedFields.length === 0) {
             this.showToast('Warning', 'Please select at least one field to analyze.', 'warning');
             return;
@@ -201,25 +205,10 @@ export default class DynamicFieldAnalyzer extends LightningElement {
         this.isAnalyzing = true;
         
         try {
-            console.log('Starting field analysis with params:', {
-                objectName: this.selectedObject,
-                recordTypeId: this.selectedRecordType,
-                recordTypeName: this.selectedRecordTypeName,
-                selectedFields: this.selectedFields
-            });
-            
-            // Get both analysis details and report in one call to avoid data loss
             this.analysisReport = await analyzeFieldsAndGenerateReport({
                 objectName: this.selectedObject,
                 recordTypeId: this.selectedRecordType,
                 recordTypeName: this.selectedRecordTypeName,
-                selectedFieldNames: this.selectedFields
-            });
-            
-            // Also get the field analysis details separately for saving functionality
-            this.fieldAnalysisDetails = await analyzeSelectedFields({
-                objectName: this.selectedObject,
-                recordTypeId: this.selectedRecordType,
                 selectedFieldNames: this.selectedFields
             });
             
@@ -232,66 +221,328 @@ export default class DynamicFieldAnalyzer extends LightningElement {
             this.isAnalyzing = false;
         }
     }
+
+    // ========== STEP 3: INSTRUCTIONS ==========
     
-    // Save Analysis to Custom Object
-    async handleSaveAnalysis() {
-        if (!this.analysisReport) {
-            this.showToast('Warning', 'No analysis to save. Please analyze fields first.', 'warning');
+    handleAddInstruction() {
+        const newInstruction = {
+            id: 'temp_' + this.nextTempId++,
+            stepNumber: this.nextStepNumber++,
+            text: '',
+            fields: [],
+            isEditing: true,
+            isNew: true,
+            isFirst: this.instructions.length === 0,
+            isLast: true
+        };
+
+        // Update isLast for existing instructions
+        this.instructions = this.instructions.map(inst => ({
+            ...inst,
+            isLast: false
+        }));
+
+        this.instructions = [...this.instructions, newInstruction];
+    }
+
+    handleEditInstruction(event) {
+        const stepId = event.target.dataset.id;
+        this.instructions = this.instructions.map(inst => ({
+            ...inst,
+            isEditing: inst.id === stepId,
+            originalData: inst.id === stepId ? { ...inst } : inst.originalData
+        }));
+    }
+
+    handleInstructionTextChange(event) {
+        const stepId = event.target.dataset.id;
+        const newText = event.target.value;
+        
+        this.instructions = this.instructions.map(inst => 
+            inst.id === stepId ? { ...inst, text: newText } : inst
+        );
+    }
+
+    handleInstructionFieldChange(event) {
+        const stepId = event.target.dataset.id;
+        const selectedFields = event.detail.value;
+        
+        this.instructions = this.instructions.map(inst => 
+            inst.id === stepId ? { ...inst, fields: selectedFields } : inst
+        );
+    }
+
+    handleSaveInstruction(event) {
+        const stepId = event.target.dataset.id;
+        const instruction = this.instructions.find(inst => inst.id === stepId);
+        
+        // Enhanced validation
+        if (!instruction.text || !instruction.text.trim()) {
+            this.showToast('Error', 'Instruction text is required', 'error');
             return;
+        }
+        
+        if (instruction.text.trim().length < 3) {
+            this.showToast('Error', 'Instruction text must be at least 3 characters long', 'error');
+            return;
+        }
+        
+        if (!instruction.stepNumber || instruction.stepNumber <= 0) {
+            this.showToast('Error', 'Valid step number is required', 'error');
+            return;
+        }
+
+        // Update the instruction with clean data
+        this.instructions = this.instructions.map(inst => ({
+            ...inst,
+            isEditing: inst.id === stepId ? false : inst.isEditing,
+            text: inst.id === stepId ? inst.text.trim() : inst.text, // Clean whitespace
+            originalData: inst.id === stepId ? { ...inst, text: inst.text.trim() } : inst.originalData
+        }));
+        
+        this.showToast('Success', 'Instruction saved', 'success');
+    }
+
+    handleCancelEditInstruction(event) {
+        const stepId = event.target.dataset.id;
+        const instruction = this.instructions.find(inst => inst.id === stepId);
+        
+        if (instruction.isNew) {
+            // Remove new instruction
+            this.instructions = this.instructions.filter(inst => inst.id !== stepId);
+            this.nextStepNumber--;
+        } else {
+            // Restore original data
+            this.instructions = this.instructions.map(inst => 
+                inst.id === stepId ? { ...inst.originalData, isEditing: false } : inst
+            );
+        }
+        
+        this.updatePositionFlags();
+    }
+
+    handleMoveInstruction(event) {
+        const stepId = event.target.dataset.id;
+        const direction = event.detail.value;
+        const currentIndex = this.instructions.findIndex(inst => inst.id === stepId);
+        
+        if (direction === 'moveup' && currentIndex > 0) {
+            this.swapInstructions(currentIndex, currentIndex - 1);
+        } else if (direction === 'movedown' && currentIndex < this.instructions.length - 1) {
+            this.swapInstructions(currentIndex, currentIndex + 1);
+        }
+    }
+
+    swapInstructions(index1, index2) {
+        const newInstructions = [...this.instructions];
+        [newInstructions[index1], newInstructions[index2]] = [newInstructions[index2], newInstructions[index1]];
+        
+        // Update step numbers
+        newInstructions[index1].stepNumber = index1 + 1;
+        newInstructions[index2].stepNumber = index2 + 1;
+        
+        this.instructions = newInstructions;
+        this.updatePositionFlags();
+    }
+
+    handleDeleteInstruction(event) {
+        const stepId = event.target.dataset.id;
+        
+        // Remove from list
+        this.instructions = this.instructions.filter(inst => inst.id !== stepId);
+        
+        this.reorderStepNumbers();
+        this.updatePositionFlags();
+    }
+
+    reorderStepNumbers() {
+        this.instructions = this.instructions.map((inst, index) => ({
+            ...inst,
+            stepNumber: index + 1
+        }));
+        this.nextStepNumber = this.instructions.length + 1;
+    }
+
+    updatePositionFlags() {
+        this.instructions = this.instructions.map((inst, index) => ({
+            ...inst,
+            isFirst: index === 0,
+            isLast: index === this.instructions.length - 1
+        }));
+    }
+
+    // ========== VALIDATION METHODS ==========
+    
+    validateInstructions() {
+        // Check if there are any instructions still in edit mode
+        const editingInstructions = this.instructions.filter(inst => inst.isEditing);
+        if (editingInstructions.length > 0) {
+            this.showToast('Warning', 'Please save or cancel all instructions in edit mode before proceeding', 'warning');
+            return false;
+        }
+        
+        // Validate each instruction
+        for (let i = 0; i < this.instructions.length; i++) {
+            const inst = this.instructions[i];
+            
+            if (!inst.text || !inst.text.trim() || inst.text.trim().length < 3) {
+                this.showToast('Error', `Instruction ${inst.stepNumber} has invalid text. Please fix or remove it.`, 'error');
+                return false;
+            }
+            
+            if (!inst.stepNumber || inst.stepNumber <= 0) {
+                this.showToast('Error', `Instruction ${i + 1} has invalid step number. Please fix or remove it.`, 'error');
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    // ========== STEP 4: SAVE ANALYSIS ==========
+    
+    async handleSaveCompleteAnalysis() {
+        if (!this.selectedFields || this.selectedFields.length === 0) {
+            this.showToast('Warning', 'No fields selected to save.', 'warning');
+            return;
+        }
+        
+        // Validate instructions before saving
+        if (this.instructions.length > 0 && !this.validateInstructions()) {
+            return; // Validation failed, error message already shown
         }
         
         this.isSaving = true;
         
         try {
-            const recordId = await createAnalysisRecord({
+            // First create the analysis record
+            this.analysisRecordId = await createAnalysisRecord({
                 objectName: this.selectedObject,
                 recordTypeName: this.selectedRecordTypeName,
                 recordTypeId: this.selectedRecordType,
                 selectedFields: this.selectedFields,
-                analysisDetails: this.analysisReport
+                analysisDetails: this.analysisReport || 'Analysis completed'
             });
             
-            this.showToast('Success', `Analysis saved successfully! Record ID: ${recordId}`, 'success');
+            console.log('Analysis record created with ID:', this.analysisRecordId);
+            
+            // Then save the instructions if any exist
+            if (this.instructions.length > 0) {
+                console.log('Processing instructions for save:', this.instructions);
+                
+                const instructionsToSave = this.instructions
+                    .filter(inst => {
+                        // More robust filtering: must not be editing, must have valid text and step number
+                        const hasValidText = inst.text && typeof inst.text === 'string' && inst.text.trim().length > 0;
+                        const hasValidStepNumber = inst.stepNumber && typeof inst.stepNumber === 'number' && inst.stepNumber > 0;
+                        const isNotEditing = !inst.isEditing;
+                        
+                        console.log(`Instruction ${inst.id}: text="${inst.text}", stepNumber=${inst.stepNumber}, isEditing=${inst.isEditing}`);
+                        console.log(`Valid text: ${hasValidText}, Valid step: ${hasValidStepNumber}, Not editing: ${isNotEditing}`);
+                        
+                        return hasValidText && hasValidStepNumber && isNotEditing;
+                    })
+                    .map(inst => ({
+                        id: inst.isNew ? null : inst.id,
+                        analysisId: this.analysisRecordId,
+                        stepNumber: parseInt(inst.stepNumber), // Ensure it's an integer
+                        text: inst.text.trim(), // Trim whitespace
+                        fields: inst.fields || [] // Ensure fields is an array
+                    }));
+                
+                console.log('Instructions to save after filtering:', instructionsToSave);
+                
+                if (instructionsToSave.length > 0) {
+                    await saveInstructions({ 
+                        analysisId: this.analysisRecordId,
+                        instructions: instructionsToSave 
+                    });
+                    console.log('Instructions saved successfully');
+                } else {
+                    console.log('No valid instructions to save');
+                }
+            } else {
+                console.log('No instructions to save');
+            }
+            
+            this.showToast('Success', `Analysis and instructions saved successfully! Record ID: ${this.analysisRecordId}`, 'success');
+            
+            // Reset for next use
+            this.handleStartOver();
             
         } catch (error) {
-            console.error('Error saving analysis:', error);
-            this.showToast('Error', 'Failed to save analysis: ' + this.getErrorMessage(error), 'error');
+            console.error('Error saving complete analysis:', error);
+            console.error('Error details:', error);
+            this.showToast('Error', 'Failed to save complete analysis: ' + this.getErrorMessage(error), 'error');
         } finally {
             this.isSaving = false;
         }
     }
+
+    handleStartOver() {
+        // Reset all data and go back to step 1
+        this.currentStep = 'step1';
+        this.selectedObject = '';
+        this.resetObjectDependentData();
+    }
+
+    // ========== NAVIGATION ==========
     
-    // Clear Field Selection
-    handleClearSelection() {
-        this.selectedFields = [];
-        this.analysisReport = '';
-        this.fieldAnalysisDetails = [];
+    async handleNext() {
+        const currentStepNumber = parseInt(this.currentStep.replace('step', ''));
+        
+        // Validate current step before proceeding
+        if (currentStepNumber === 1) {
+            if (!this.selectedObject || !this.selectedRecordType) {
+                this.showToast('Warning', 'Please select both object and record type before proceeding.', 'warning');
+                return;
+            }
+            // Load fields for step 2
+            await this.loadFields();
+        } else if (currentStepNumber === 2) {
+            if (!this.selectedFields || this.selectedFields.length === 0) {
+                this.showToast('Warning', 'Please select at least one field before proceeding.', 'warning');
+                return;
+            }
+            // Analysis is optional for preview - no auto-analysis needed for navigation
+        } else if (currentStepNumber === 3) {
+            // Step 3 is optional - user can proceed without instructions
+        }
+        
+        // Move to next step
+        if (currentStepNumber < 4) {
+            this.currentStep = `step${currentStepNumber + 1}`;
+        }
     }
     
-    // Clear Analysis Results
-    handleClearAnalysis() {
-        this.analysisReport = '';
-        this.fieldAnalysisDetails = [];
+    handlePrevious() {
+        const currentStepNumber = parseInt(this.currentStep.replace('step', ''));
+        if (currentStepNumber > 1) {
+            this.currentStep = `step${currentStepNumber - 1}`;
+        }
     }
-    
-    // Computed Properties
-    get showMainContent() {
-        return this.selectedObject && this.selectedRecordType && !this.isLoadingRecordTypes && !this.isLoadingFields;
-    }
+
+    // ========== COMPUTED PROPERTIES ==========
     
     get fieldSelectionTitle() {
         return `Field Selection - ${this.selectedObject}${this.selectedRecordTypeName ? ' (' + this.selectedRecordTypeName + ')' : ''}`;
     }
     
-    get analyzeDisabled() {
+    get nextDisabled() {
+        if (this.currentStep === 'step1') {
+            return !this.selectedObject || !this.selectedRecordType || this.isLoadingRecordTypes;
+        } else if (this.currentStep === 'step2') {
+            return !this.selectedFields || this.selectedFields.length === 0 || this.isLoadingFields;
+        }
+        return false; // Step 3 can always proceed (instructions are optional)
+    }
+    
+    get quickAnalyzeDisabled() {
         return !this.selectedFields || this.selectedFields.length === 0 || this.isAnalyzing;
     }
+
+    // ========== UTILITY METHODS ==========
     
-    get clearDisabled() {
-        return !this.selectedFields || this.selectedFields.length === 0;
-    }
-    
-    // Utility Methods
     showToast(title, message, variant) {
         const evt = new ShowToastEvent({
             title: title,

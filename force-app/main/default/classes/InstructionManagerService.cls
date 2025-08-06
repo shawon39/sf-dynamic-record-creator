@@ -150,6 +150,19 @@ public with sharing class InstructionManagerService {
             List<Dynamic_Field_Instructions__c> recordsToUpsert = new List<Dynamic_Field_Instructions__c>();
             
             for (InstructionToSave instruction : instructions) {
+                Console.log('Processing instruction: ' + JSON.serialize(instruction));
+                
+                // Validate required fields before creating record
+                if (String.isBlank(instruction.text)) {
+                    Console.log('Skipping instruction with blank text: ' + instruction.id);
+                    continue; // Skip instructions with blank text
+                }
+                
+                if (instruction.stepNumber == null || instruction.stepNumber <= 0) {
+                    Console.log('Skipping instruction with invalid step number: ' + instruction.stepNumber);
+                    continue; // Skip instructions with invalid step numbers
+                }
+                
                 Dynamic_Field_Instructions__c record = new Dynamic_Field_Instructions__c();
                 
                 // Set ID for existing records
@@ -159,7 +172,7 @@ public with sharing class InstructionManagerService {
                 
                 record.Field_Analysis__c = analysisId;
                 record.Step_Number__c = instruction.stepNumber;
-                record.Instruction_Text__c = instruction.text;
+                record.Instruction_Text__c = instruction.text.trim(); // Trim whitespace
                 record.Is_Active__c = true;
                 
                 // Convert field list to comma-separated string
@@ -168,6 +181,10 @@ public with sharing class InstructionManagerService {
                 } else {
                     record.Related_Fields__c = '';
                 }
+                
+                Console.log('Created record for upsert: Field_Analysis__c=' + record.Field_Analysis__c + 
+                           ', Step_Number__c=' + record.Step_Number__c + 
+                           ', Instruction_Text__c=' + record.Instruction_Text__c);
                 
                 recordsToUpsert.add(record);
             }
@@ -249,10 +266,11 @@ public with sharing class InstructionManagerService {
                     ORDER BY Step_Number__c ASC
                 ];
             } else if (String.isNotBlank(objectName)) {
+                // If we only have objectName, we need to find instructions via the relationship
                 instructionRecords = [
                     SELECT Step_Number__c, Instruction_Text__c, Related_Fields__c
                     FROM Dynamic_Field_Instructions__c
-                    WHERE Object_Name__c = :objectName AND Is_Active__c = true
+                    WHERE Field_Analysis__r.Object_Name__c = :objectName AND Is_Active__c = true
                     ORDER BY Step_Number__c ASC
                 ];
             }
