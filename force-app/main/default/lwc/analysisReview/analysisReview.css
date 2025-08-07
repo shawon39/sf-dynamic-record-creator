@@ -1,0 +1,12 @@
+/* Analysis Review Component - Minimal Custom CSS */
+
+.review-container {
+    max-width: 100%;
+}
+
+/* Custom styling for monospace text in analysis report */
+pre {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

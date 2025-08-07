@@ -16,6 +16,9 @@
                 <!-- Step 1: Object Selection -->
                 <template if:true={isStep1}>
                     <c-object-selector 
+                        initial-selected-object={analysisData.selectedObject}
+                        initial-selected-record-type={analysisData.selectedRecordType}
+                        initial-selected-record-type-name={analysisData.selectedRecordTypeName}
                         onobjectselected={handleObjectSelected}
                         onerror={handleError}>
                     </c-object-selector>
@@ -27,6 +30,9 @@
                         selected-object={analysisData.selectedObject}
                         selected-record-type={analysisData.selectedRecordType}
                         selected-record-type-name={analysisData.selectedRecordTypeName}
+                        initial-selected-fields={analysisData.selectedFields}
+                        initial-analysis-report={analysisData.analysisReport}
+                        initial-field-analysis-details={analysisData.fieldAnalysisDetails}
                         onfieldsanalyzed={handleFieldsAnalyzed}
                         ongoback={handleGoBack}
                         onerror={handleError}>
@@ -38,6 +44,7 @@
                     <c-instruction-builder 
                         selected-object={analysisData.selectedObject}
                         selected-fields={analysisData.selectedFields}
+                        initial-instructions={analysisData.instructions}
                         oninstructionscreated={handleInstructionsCreated}
                         ongoback={handleGoBack}
                         onerror={handleError}>

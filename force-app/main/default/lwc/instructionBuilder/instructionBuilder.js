@@ -4,13 +4,20 @@ export default class InstructionBuilder extends LightningElement {
     @api selectedObject;
     @api selectedFields;
     
+    // API property for receiving existing instructions from parent
+    @api initialInstructions;
+    
     @track instructions = [];
     @track fieldOptionsForInstructions = [];
     nextStepNumber = 1;
     nextTempId = 1;
     
+    // Track if component has been initialized
+    @track isInitialized = false;
+    
     connectedCallback() {
         this.initializeFieldOptions();
+        this.initializeFromParentData();
     }
     
     initializeFieldOptions() {
@@ -19,6 +26,24 @@ export default class InstructionBuilder extends LightningElement {
                 label: field,
                 value: field
             }));
+        }
+    }
+    
+    // Initialize component with existing instructions from parent
+    initializeFromParentData() {
+        if (!this.isInitialized && this.initialInstructions && this.initialInstructions.length > 0) {
+            this.instructions = this.initialInstructions.map(instruction => ({
+                id: 'temp_' + this.nextTempId++,
+                stepNumber: instruction.stepNumber,
+                text: instruction.text,
+                fields: instruction.fields || [],
+                isEditing: false
+            }));
+            
+            // Update next step number based on existing instructions
+            this.nextStepNumber = Math.max(...this.instructions.map(inst => inst.stepNumber)) + 1;
+            
+            this.isInitialized = true;
         }
     }
     

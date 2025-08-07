@@ -8,6 +8,11 @@ export default class FieldSelector extends LightningElement {
     @api selectedRecordType;
     @api selectedRecordTypeName;
     
+    // API properties for receiving existing data from parent
+    @api initialSelectedFields;
+    @api initialAnalysisReport;
+    @api initialFieldAnalysisDetails;
+    
     @track availableFields = [];
     @track selectedFields = [];
     @track analysisReport = '';
@@ -20,9 +25,32 @@ export default class FieldSelector extends LightningElement {
     // UI state
     @track showAnalysisResults = false;
     
+    // Track if component has been initialized
+    @track isInitialized = false;
+    
     connectedCallback() {
         if (this.selectedObject) {
             this.loadObjectFields();
+        }
+    }
+    
+    // Initialize component with existing data from parent
+    initializeFromParentData() {
+        if (!this.isInitialized) {
+            if (this.initialSelectedFields && this.initialSelectedFields.length > 0) {
+                this.selectedFields = [...this.initialSelectedFields];
+            }
+            
+            if (this.initialAnalysisReport) {
+                this.analysisReport = this.initialAnalysisReport;
+                this.showAnalysisResults = true;
+            }
+            
+            if (this.initialFieldAnalysisDetails && this.initialFieldAnalysisDetails.length > 0) {
+                this.fieldAnalysisDetails = [...this.initialFieldAnalysisDetails];
+            }
+            
+            this.isInitialized = true;
         }
     }
     
@@ -40,6 +68,9 @@ export default class FieldSelector extends LightningElement {
             }));
             
             console.log('Loaded ' + this.availableFields.length + ' fields for ' + this.selectedObject);
+            
+            // Initialize with existing data after fields are loaded
+            this.initializeFromParentData();
             
         } catch (error) {
             console.error('Error loading fields:', error);

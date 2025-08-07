@@ -1,8 +1,13 @@
-import { LightningElement, track, wire } from 'lwc';
+import { LightningElement, track, wire, api } from 'lwc';
 import getAllSalesforceObjects from '@salesforce/apex/ObjectService.getAllSalesforceObjects';
 import getObjectRecordTypes from '@salesforce/apex/ObjectService.getObjectRecordTypes';
 
 export default class ObjectSelector extends LightningElement {
+    // API properties for receiving data from parent
+    @api initialSelectedObject;
+    @api initialSelectedRecordType;
+    @api initialSelectedRecordTypeName;
+    
     @track objectOptions = [];
     @track selectedObject = '';
     @track recordTypeOptions = [];
@@ -15,6 +20,9 @@ export default class ObjectSelector extends LightningElement {
     @track isLoadingObjects = false;
     @track isLoadingRecordTypes = false;
     
+    // Track if component has been initialized
+    @track isInitialized = false;
+    
     // Wire Salesforce Objects
     @wire(getAllSalesforceObjects)
     wiredObjects({ data, error }) {
@@ -23,9 +31,33 @@ export default class ObjectSelector extends LightningElement {
                 label: obj.label,
                 value: obj.value
             }));
+            
+            // Initialize with existing data if available
+            this.initializeFromParentData();
         } else if (error) {
             console.error('Error loading objects:', error);
             this.dispatchErrorEvent('Failed to load Salesforce objects: ' + this.getErrorMessage(error));
+        }
+    }
+    
+    // Initialize component with data from parent
+    async initializeFromParentData() {
+        if (!this.isInitialized && this.initialSelectedObject && this.objectOptions.length > 0) {
+            this.selectedObject = this.initialSelectedObject;
+            this.selectedRecordType = this.initialSelectedRecordType || '';
+            this.selectedRecordTypeName = this.initialSelectedRecordTypeName || '';
+            
+            if (this.selectedObject) {
+                await this.loadRecordTypes();
+                
+                // Set record type after loading options
+                if (this.initialSelectedRecordType) {
+                    this.selectedRecordType = this.initialSelectedRecordType;
+                    this.selectedRecordTypeName = this.initialSelectedRecordTypeName;
+                }
+            }
+            
+            this.isInitialized = true;
         }
     }
     
