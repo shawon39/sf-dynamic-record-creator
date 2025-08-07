@@ -44,18 +44,14 @@
                         <div class="slds-grid slds-gutters">
                             <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
                                 <div class="slds-form-element">
-                                    <label class="slds-form-element__label slds-text-body_small">Object:</label>
-                                    <div class="slds-form-element__control">
-                                        <span class="slds-text-body_regular">{selectedObject}</span>
-                                    </div>
+                                    <span class="slds-text-body_small">Object: </span>
+                                    <span class="slds-text-body_regular">{selectedObject}</span>
                                 </div>
                             </div>
                             <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
                                 <div class="slds-form-element">
-                                    <label class="slds-form-element__label slds-text-body_small">Record Type:</label>
-                                    <div class="slds-form-element__control">
-                                        <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
-                                    </div>
+                                    <span class="slds-text-body_small">Record Type: </span>
+                                    <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
                                 </div>
                             </div>
                         </div>
@@ -64,10 +60,8 @@
                         <template if:true={selectedRecordTypeDescription}>
                             <div class="slds-var-m-top_small">
                                 <div class="slds-form-element">
-                                    <label class="slds-form-element__label slds-text-body_small">Description:</label>
-                                    <div class="slds-form-element__control">
-                                        <span class="slds-text-body_small slds-text-color_weak">{selectedRecordTypeDescription}</span>
-                                    </div>
+                                    <span class="slds-text-body_small">Description: </span>
+                                    <span class="slds-text-body_small slds-text-color_weak">{selectedRecordTypeDescription}</span>
                                 </div>
                             </div>
                         </template>
@@ -76,7 +70,7 @@
             </template>
             
             <!-- Continue Button -->
-            <div class="slds-var-m-top_large slds-text-align_center">
+            <div class="slds-var-m-top_large slds-text-align_right">
                 <lightning-button 
                     label="Continue to Field Selection" 
                     variant="brand"

@@ -153,6 +153,7 @@ export default class FieldSelector extends LightningElement {
         this.dispatchEvent(errorEvent);
     }
     
+
     getErrorMessage(error) {
         if (error && error.body) {
             if (error.body.message) {

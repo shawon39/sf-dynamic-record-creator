@@ -8,18 +8,14 @@
                     <div class="slds-grid slds-gutters">
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_8-of-12">
                             <div class="slds-form-element">
-                                <label class="slds-form-element__label slds-text-body_small">Creating instructions for:</label>
-                                <div class="slds-form-element__control">
-                                    <span class="slds-text-body_regular">{selectedObject}</span>
-                                </div>
+                                <span class="slds-text-body_small">Creating instructions for: </span>
+                                <span class="slds-text-body_regular">{selectedObject}</span>
                             </div>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
                             <div class="slds-form-element">
-                                <label class="slds-form-element__label slds-text-body_small">Available Fields:</label>
-                                <div class="slds-form-element__control">
-                                    <span class="slds-text-body_regular">{selectedFields.length}</span>
-                                </div>
+                                <span class="slds-text-body_small">Available Fields: </span>
+                                <span class="slds-text-body_regular">{selectedFields.length}</span>
                             </div>
                         </div>
                     </div>
@@ -32,9 +28,6 @@
                     <h3 class="slds-text-heading_small">
                         Instructions ({instructionCount})
                     </h3>
-                    <p class="slds-text-body_small slds-text-color_weak">
-                        Create step-by-step instructions to guide users through the record creation process
-                    </p>
                 </div>
                 <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-text-align_right">
                     <lightning-button 
@@ -57,7 +50,7 @@
                                 <div class="slds-col slds-grow">
                                     <div class="slds-media">
                                         <div class="slds-media__figure">
-                                            <span class="slds-badge slds-badge_lightest">
+                                            <span class="slds-badge slds-theme_success">
                                                 Step {instruction.stepNumber}
                                             </span>
                                         </div>
@@ -169,17 +162,8 @@
             <!-- Empty State -->
             <template if:false={hasInstructions}>
                 <div class="slds-text-align_center slds-var-p-vertical_large">
-                    <lightning-icon icon-name="utility:steps" size="large" variant="base"></lightning-icon>
+                    <lightning-icon icon-name='standard:action_list_component' alternative-text='action_list_component' size='large' title='action_list_component'></lightning-icon>
                     <h3 class="slds-text-heading_medium slds-var-m-top_medium">No instruction steps yet</h3>
-                    <p class="slds-text-body_regular slds-var-m-top_small">
-                        Create step-by-step instructions to guide users through the record creation process.
-                    </p>
-                    <lightning-button 
-                        label="Add First Step" 
-                        variant="brand"
-                        class="slds-var-m-top_medium"
-                        onclick={handleAddInstruction}>
-                    </lightning-button>
                 </div>
             </template>
             

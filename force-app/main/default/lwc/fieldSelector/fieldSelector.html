@@ -8,18 +8,14 @@
                     <div class="slds-grid slds-gutters">
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
                             <div class="slds-form-element">
-                                <label class="slds-form-element__label slds-text-body_small">Object:</label>
-                                <div class="slds-form-element__control">
-                                    <span class="slds-text-body_regular">{selectedObject}</span>
-                                </div>
+                                <span class="slds-text-body_small">Object: </span>
+                                <span class="slds-text-body_regular">{selectedObject}</span>
                             </div>
                         </div>
                         <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
                             <div class="slds-form-element">
-                                <label class="slds-form-element__label slds-text-body_small">Record Type:</label>
-                                <div class="slds-form-element__control">
-                                    <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
-                                </div>
+                                <span class="slds-text-body_small">Record Type: </span>
+                                <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
                             </div>
                         </div>
                     </div>
@@ -56,7 +52,7 @@
                                 </lightning-dual-listbox>
                                 
                                 <!-- Analyze Button -->
-                                <div class="slds-text-align_center slds-var-m-top_medium">
+<div class="slds-var-m-top_medium slds-var-m-right_large">
                                     <lightning-button 
                                         label="Analyze Selected Fields" 
                                         variant="brand"
@@ -97,7 +93,7 @@
                             
                             <template if:true={showAnalysisResults}>
                                 <div class="slds-scrollable_y" style="height: 400px;">
-                                    <pre class="slds-text-body_small">{analysisReport}</pre>
+                                    <div class="slds-text-body_regular" style="white-space: pre-wrap; line-height: 1.6;">{analysisReport}</div>
                                 </div>
                             </template>
                         </div>
