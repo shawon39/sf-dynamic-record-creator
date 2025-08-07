@@ -50,6 +50,14 @@ export default class AnalysisReview extends LightningElement {
         return this.analysisData?.analysisReport || '';
     }
     
+    get saveButtonLabel() {
+        return this.isSaving ? 'Saving Analysis Configuration...' : 'Save Analysis Configuration';
+    }
+    
+    get saveButtonIcon() {
+        return this.isSaving ? 'utility:spinner' : 'utility:save';
+    }
+    
     // Save the complete analysis
     async handleSaveAnalysis() {
         this.isSaving = true;
@@ -82,8 +90,11 @@ export default class AnalysisReview extends LightningElement {
             });
             
             const message = this.hasInstructions 
-                ? `Analysis configuration with ${this.instructionsCount} instruction(s) saved successfully! ID: ${analysisId}`
-                : `Analysis configuration saved successfully! ID: ${analysisId}`;
+                ? `Analysis configuration with ${this.instructionsCount} instruction(s) saved successfully!`
+                : `Analysis configuration saved successfully!`;
+            
+            // Reset saving state immediately on success
+            this.isSaving = false;
             
             // Dispatch success event
             this.dispatchEvent(new CustomEvent('analysissaved', {
@@ -96,14 +107,15 @@ export default class AnalysisReview extends LightningElement {
         } catch (error) {
             console.error('Error saving analysis:', error);
             
+            // Reset saving state on error
+            this.isSaving = false;
+            
             // Dispatch error event
             this.dispatchEvent(new CustomEvent('error', {
                 detail: { 
                     message: 'Failed to save analysis: ' + (error.body?.message || error.message || 'Unknown error')
                 }
             }));
-        } finally {
-            this.isSaving = false;
         }
     }
     

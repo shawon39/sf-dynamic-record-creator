@@ -79,29 +79,16 @@
                     </div>
                     <div class="slds-col">
                         <lightning-button 
-                            label="Save Analysis Configuration" 
+                            label={saveButtonLabel}
                             variant="brand"
-                            icon-name="utility:save"
+                            icon-name={saveButtonIcon}
                             onclick={handleSaveAnalysis}
                             disabled={isSaving}>
                         </lightning-button>
                     </div>
                 </div>
             </div>
-            
-            <!-- Loading State -->
-            <template if:true={isSaving}>
-                <div class="slds-backdrop slds-backdrop_open">
-                    <div class="slds-modal__container">
-                        <div class="slds-align_absolute-center slds-var-p-around_large">
-                            <lightning-spinner alternative-text="Saving analysis..." size="medium"></lightning-spinner>
-                            <div class="slds-text-heading_small slds-var-m-top_medium slds-text-align_center">
-                                Saving Analysis Configuration...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </template>
+
         </div>
     </lightning-card>
 </template>

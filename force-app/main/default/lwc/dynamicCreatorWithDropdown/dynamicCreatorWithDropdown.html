@@ -13,9 +13,10 @@
       </lightning-combobox>
     </div>
 
-    <!-- Progress bar at the top when object is selected -->
+    <!-- Progress bar at the top when object is selected and has instructions -->
     <template if:true={selectedObject}>
-      <div class="slds-var-p-horizontal_x-small slds-var-p-vertical_x-small slds-border_bottom">
+      <template if:true={hasInstructions}>
+        <div class="slds-var-p-horizontal_x-small slds-var-p-vertical_x-small slds-border_bottom">
         <div class="slds-grid slds-grid_align-spread slds-var-m-bottom_x-small">
           <div class="slds-col">
             <h3 class="slds-text-heading_small slds-text-color_default">
@@ -47,50 +48,124 @@
             </p>
           </div>
         </div>
-      </div>
+        </div>
+      </template>
     </template>
 
-    <!-- Two-column layout when object is selected -->
+    <!-- Two-column layout when object is selected and has instructions -->
     <template if:true={selectedObject}>
-      <div class="slds-grid slds-gutters slds-var-p-around_x-small">
-        
-        <!-- Left Column: Instructions (30% width) -->
-        <div class="slds-col slds-size_4-of-12">
-          <div class="slds-box slds-theme_default slds-var-p-around_x-small">
+      <template if:true={hasInstructions}>
+        <div class="slds-grid slds-gutters slds-var-p-around_x-small">
+          
+          <!-- Left Column: Instructions (30% width) -->
+          <div class="slds-col slds-size_4-of-12">
+            <div class="slds-box slds-theme_default slds-var-p-around_x-small">
 
-            <!-- Compact Progress Indicator -->
-            <div class="slds-progress slds-progress_vertical">
-              <ol class="slds-progress__list">
-                <template for:each={progressSteps} for:item="step">
-                  <li key={step.id} class={step.cssClass}>
-                    <template if:true={step.isCompleted}>
-                      <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success" title="Complete">
-                        <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
-                        <span class="slds-assistive-text">Complete</span>
-                      </span>
-                    </template>
-                    <template if:false={step.isCompleted}>
-                      <div class="slds-progress__marker">
-                        <template if:true={step.isActive}>
-                          <span class="slds-assistive-text">Active</span>
-                        </template>
+              <!-- Compact Progress Indicator -->
+              <div class="slds-progress slds-progress_vertical">
+                <ol class="slds-progress__list">
+                  <template for:each={progressSteps} for:item="step">
+                    <li key={step.id} class={step.cssClass}>
+                      <template if:true={step.isCompleted}>
+                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success" title="Complete">
+                          <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
+                          <span class="slds-assistive-text">Complete</span>
+                        </span>
+                      </template>
+                      <template if:false={step.isCompleted}>
+                        <div class="slds-progress__marker">
+                          <template if:true={step.isActive}>
+                            <span class="slds-assistive-text">Active</span>
+                          </template>
+                        </div>
+                      </template>
+                      <div class="slds-progress__item_content slds-grid slds-grid_align-spread">
+                        {step.text}
                       </div>
-                    </template>
-                    <div class="slds-progress__item_content slds-grid slds-grid_align-spread">
-                      {step.text}
-                    </div>
-                  </li>
-                </template>
-              </ol>
-              <div aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressValue} role="progressbar">
-                <span class="slds-assistive-text">Progress: {progressValue}%</span>
+                    </li>
+                  </template>
+                </ol>
+                <div aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressValue} role="progressbar">
+                  <span class="slds-assistive-text">Progress: {progressValue}%</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Right Column: Record Creation Form (70% width) -->
-        <div class="slds-col slds-size_8-of-12">
+          <!-- Right Column: Record Creation Form (70% width) -->
+          <div class="slds-col slds-size_8-of-12">
+            <div class="slds-box slds-theme_default slds-var-p-around_x-small">
+
+            <!-- Form fields -->
+            <template if:true={fieldsArray.length}>
+              <template if:false={isLoadingFields}>
+                <lightning-record-edit-form
+                  object-api-name={selectedObject}
+                  record-type-id={recordTypeId}
+                  mode="create"
+                  onsuccess={handleSuccess}
+                  onerror={handleError}
+                >
+                  <lightning-messages></lightning-messages>
+                  
+                  <!-- Single column form layout -->
+                  <template for:each={fieldsArray} for:item="fld">
+                    <div key={fld.apiName} class="slds-var-m-bottom_x-small">
+                      <lightning-input-field
+                        field-name={fld.apiName}
+                        onchange={handleFieldChange}
+                      ></lightning-input-field>
+                    </div>
+                  </template>
+                  
+                  <div class="slds-var-p-top_x-small slds-text-align_right">
+                    <lightning-button 
+                      label="Cancel"
+                      variant="neutral"
+                      onclick={handleCancel}
+                      class="slds-var-m-right_x-small">
+                    </lightning-button>
+                    <lightning-button 
+                      type="submit" 
+                      label={createButtonLabel}
+                      variant="brand">
+                    </lightning-button>
+                  </div>
+                </lightning-record-edit-form>
+              </template>
+            </template>
+            
+            <!-- Loading state -->
+            <template if:true={isLoadingFields}>
+              <div class="slds-var-p-around_x-small slds-text-align_center">
+                <lightning-spinner alternative-text="Loading metadata..." size="small"></lightning-spinner>
+                <p class="slds-var-m-top_x-small slds-text-body_small slds-text-color_weak">
+                  Loading {selectedObject} fields...
+                </p>
+              </div>
+            </template>
+            
+            <!-- No fields available -->
+            <template if:true={selectedObject}>
+              <template if:false={fieldsArray.length}>
+                <template if:false={isLoadingFields}>
+                  <div class="slds-var-p-around_x-small slds-text-align_center">
+                    <lightning-icon icon-name="utility:info" size="small" class="slds-var-m-bottom_x-small"></lightning-icon>
+                    <p class="slds-text-body_regular slds-text-color_weak">
+                      No fields available for {selectedObject}
+                    </p>
+                  </div>
+                </template>
+              </template>
+            </template>
+            </div>
+          </div>
+        </div>
+      </template>
+      
+      <!-- Full-width layout when object is selected but no instructions -->
+      <template if:false={hasInstructions}>
+        <div class="slds-var-p-around_x-small">
           <div class="slds-box slds-theme_default slds-var-p-around_x-small">
 
             <!-- Form fields -->
@@ -115,17 +190,17 @@
                     </div>
                   </template>
                   
-                  <div class="slds-var-p-top_x-small">
+                  <div class="slds-var-p-top_x-small slds-text-align_right">
                     <lightning-button 
-                      type="submit" 
-                      label={createButtonLabel}
-                      variant="brand"
+                      label="Cancel"
+                      variant="neutral"
+                      onclick={handleCancel}
                       class="slds-var-m-right_x-small">
                     </lightning-button>
                     <lightning-button 
-                      label="Clear Form"
-                      variant="neutral"
-                      onclick={handleClearForm}>
+                      type="submit" 
+                      label={createButtonLabel}
+                      variant="brand">
                     </lightning-button>
                   </div>
                 </lightning-record-edit-form>
@@ -157,7 +232,7 @@
             </template>
           </div>
         </div>
-      </div>
+      </template>
     </template>
 
     <!-- Empty state when no object is selected -->

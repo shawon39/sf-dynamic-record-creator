@@ -112,7 +112,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             return;
         }
 
-        // Check if we have custom instructions
+        // Only show instructions if we have custom instructions from database
         if (this.objectFieldsData.instructions && this.objectFieldsData.instructions.length > 0) {
             console.log('Using custom instructions from database:', this.objectFieldsData.instructions);
             this.instructionSteps = this.objectFieldsData.instructions.map(instruction => ({
@@ -132,52 +132,16 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             if (this.instructionSteps.length > 0) {
                 this.instructionSteps[0].isActive = true;
             }
-        } else {
-            console.log('No custom instructions found, generating generic ones');
-            this.generateGenericInstructions();
-        }
-        
-        // Update step progress
-        this.updateStepProgress();
-    }
-
-    generateGenericInstructions() {
-        if (!this.objectFieldsData || !this.objectFieldsData.fields) {
-            this.instructionSteps = [];
-            return;
-        }
-
-        const fields = this.objectFieldsData.fields;
-        const instructions = [];
-        
-        // Group fields into logical steps (4-5 fields per step for better UX)
-        const fieldsPerStep = 5;
-        let stepId = 1;
-        
-        for (let i = 0; i < fields.length; i += fieldsPerStep) {
-            const stepFields = fields.slice(i, i + fieldsPerStep);
             
-            instructions.push({
-                id: stepId,
-                stepNumber: stepId,
-                text: `Complete section ${stepId} fields`,
-                fields: stepFields,
-                fieldComponents: stepFields.map(field => ({ apiName: field })),
-                isCompleted: false,
-                isActive: stepId === 1, // First step is active by default
-                completionPercentage: 0,
-                completedFields: 0,
-                totalFields: stepFields.length,
-                cssClass: 'instruction-step slds-var-m-bottom_small',
-                textCssClass: 'slds-text-body_regular',
-                fieldCssClass: ''
-            });
-            stepId++;
+            // Update step progress
+            this.updateStepProgress();
+        } else {
+            console.log('No custom instructions found, not showing any instructions');
+            this.instructionSteps = [];
         }
-        
-        this.instructionSteps = instructions;
-        console.log('Generated generic instructions:', this.instructionSteps);
     }
+
+
 
     // ========== FIELD CHANGE HANDLING ==========
 
@@ -201,11 +165,17 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     // Check if step is completed based on filled fields
     checkStepCompletion(instruction) {
         const stepFields = instruction.fields || [];
-        return stepFields.some(field => this.filledFields.has(field));
+        // Instruction is completed only when ALL related fields are filled
+        return stepFields.length > 0 && stepFields.every(field => this.filledFields.has(field));
     }
 
     // Update step progress based on filled fields
     updateStepProgress() {
+        // Only update if we have instructions
+        if (!this.instructionSteps || this.instructionSteps.length === 0) {
+            return;
+        }
+        
         // Update completed steps based on field completion
         this.updateCompletedSteps();
         
@@ -245,11 +215,13 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     // Update completed steps
     updateCompletedSteps() {
         this.completedSteps.clear();
-        this.instructionSteps.forEach(instruction => {
-            if (this.checkStepCompletion(instruction)) {
-                this.completedSteps.add(instruction.id);
-            }
-        });
+        if (this.instructionSteps && this.instructionSteps.length > 0) {
+            this.instructionSteps.forEach(instruction => {
+                if (this.checkStepCompletion(instruction)) {
+                    this.completedSteps.add(instruction.id);
+                }
+            });
+        }
         // Force reactivity
         this.completedSteps = new Set(this.completedSteps);
     }
@@ -274,25 +246,23 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.showToast('Error', 'Failed to create record: ' + event.detail.message, 'error');
     }
 
-    handleClearForm() {
-        // Reset form by clearing all field values
-        const inputFields = this.template.querySelectorAll('lightning-input-field');
-        inputFields.forEach(field => {
-            field.reset();
-        });
-        
-        // Reset progress tracking
-        this.filledFields.clear();
-        this.filledFields = new Set();
-        this.updateCompletedSteps();
-        
-        this.showToast('Info', 'Form has been cleared', 'info');
+
+
+    handleCancel() {
+        // Reset entire component state and go back to object selection
+        this.selectedObject = '';
+        this.resetFormState();
     }
 
 
     // Getter for static card title
     get cardTitle() {
         return 'Dynamic Record Creator';
+    }
+
+    // Check if we have custom instructions to show
+    get hasInstructions() {
+        return this.instructionSteps && this.instructionSteps.length > 0;
     }
 
     // Dynamic create button label
