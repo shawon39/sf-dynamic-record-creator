@@ -29,20 +29,12 @@ public with sharing class InstructionManagerService {
         }
     }
     
-    public class InstructionToSave {
-        @AuraEnabled public String id;
-        @AuraEnabled public String analysisId;
-        @AuraEnabled public Integer stepNumber;
-        @AuraEnabled public String text;
-        @AuraEnabled public List<String> fields;
-    }
-    
     @AuraEnabled(cacheable=true)
     public static InstructionData getInstructionsForAnalysis(String analysisId) {
         InstructionData result = new InstructionData();
         
         try {
-            Console.log('getInstructionsForAnalysis: Starting for analysisId: ' + analysisId);
+            Console.log('InstructionManagerService.getInstructionsForAnalysis: Starting for analysisId: ' + analysisId);
             
             if (String.isBlank(analysisId)) {
                 throw new IllegalArgumentException('Analysis ID cannot be blank');
@@ -79,7 +71,7 @@ public with sharing class InstructionManagerService {
                 }
             }
             
-            Console.log('getInstructionsForAnalysis: Found ' + result.availableFields.size() + ' available fields');
+            Console.log('Found ' + result.availableFields.size() + ' available fields');
             
             // Get existing instructions
             if (Schema.sObjectType.Dynamic_Field_Instructions__c.isAccessible()) {
@@ -91,15 +83,15 @@ public with sharing class InstructionManagerService {
                     ORDER BY Step_Number__c ASC
                 ];
                 
-                Console.log('getInstructionsForAnalysis: Found ' + instructionRecords.size() + ' instruction records');
+                Console.log('Found ' + instructionRecords.size() + ' instruction records');
                 
                 for (Dynamic_Field_Instructions__c record : instructionRecords) {
                     List<String> stepFields = new List<String>();
                     
                     // Parse related fields
                     if (String.isNotBlank(record.Related_Fields__c)) {
-                        String[] fieldArray = record.Related_Fields__c.split(',');
-                        for (String field : fieldArray) {
+                        String[] relatedFieldArray = record.Related_Fields__c.split(',');
+                        for (String field : relatedFieldArray) {
                             String fieldName = field.trim();
                             if (String.isNotBlank(fieldName)) {
                                 stepFields.add(fieldName);
@@ -109,14 +101,14 @@ public with sharing class InstructionManagerService {
                     
                     result.instructions.add(new InstructionStep(
                         record.Id,
-                        record.Step_Number__c != null ? record.Step_Number__c.intValue() : 0,
-                        record.Instruction_Text__c != null ? record.Instruction_Text__c : '',
+                        Integer.valueOf(record.Step_Number__c),
+                        record.Instruction_Text__c,
                         stepFields
                     ));
                 }
             }
             
-            Console.log('getInstructionsForAnalysis: Returning data with ' + result.instructions.size() + ' instructions');
+            Console.log('Returning InstructionData with ' + result.instructions.size() + ' instructions');
             
         } catch (Exception e) {
             Console.log('Error in getInstructionsForAnalysis: ' + e.getMessage());
@@ -128,85 +120,67 @@ public with sharing class InstructionManagerService {
     }
     
     @AuraEnabled
-    public static String saveInstructions(String analysisId, List<InstructionToSave> instructions) {
+    public static String createInstructions(String analysisId, List<InstructionStep> instructions) {
         try {
-            Console.log('saveInstructions: Starting for analysisId: ' + analysisId);
-            Console.log('saveInstructions: Received ' + (instructions != null ? instructions.size() : 0) + ' instructions');
+            Console.log('InstructionManagerService.createInstructions: Starting for analysisId: ' + analysisId);
+            Console.log('Instructions received: ' + (instructions != null ? instructions.size() : 0));
             
             if (String.isBlank(analysisId)) {
                 throw new IllegalArgumentException('Analysis ID cannot be blank');
             }
             
-            if (instructions == null) {
-                instructions = new List<InstructionToSave>();
+            if (instructions == null || instructions.isEmpty()) {
+                return 'No instructions to create';
             }
             
             // Check permissions
-            if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isCreateable() || 
-                !Schema.sObjectType.Dynamic_Field_Instructions__c.isUpdateable()) {
-                throw new AuraHandledException('No permission to save Dynamic Field Instructions records');
+            if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isCreateable()) {
+                throw new AuraHandledException('No permission to create instruction records');
             }
             
-            List<Dynamic_Field_Instructions__c> recordsToUpsert = new List<Dynamic_Field_Instructions__c>();
+            List<Dynamic_Field_Instructions__c> recordsToInsert = new List<Dynamic_Field_Instructions__c>();
             
-            for (InstructionToSave instruction : instructions) {
-                Console.log('Processing instruction: ' + JSON.serialize(instruction));
-                
-                // Validate required fields before creating record
-                if (String.isBlank(instruction.text)) {
-                    Console.log('Skipping instruction with blank text: ' + instruction.id);
-                    continue; // Skip instructions with blank text
-                }
-                
-                if (instruction.stepNumber == null || instruction.stepNumber <= 0) {
-                    Console.log('Skipping instruction with invalid step number: ' + instruction.stepNumber);
-                    continue; // Skip instructions with invalid step numbers
+            for (InstructionStep instruction : instructions) {
+                // Validate instruction data
+                if (String.isBlank(instruction.text) || instruction.stepNumber == null || instruction.stepNumber <= 0) {
+                    Console.log('Skipping invalid instruction: ' + JSON.serialize(instruction));
+                    continue;
                 }
                 
                 Dynamic_Field_Instructions__c record = new Dynamic_Field_Instructions__c();
-                
-                // Set ID for existing records
-                if (String.isNotBlank(instruction.id) && !instruction.id.startsWith('temp_')) {
-                    record.Id = instruction.id;
-                }
-                
                 record.Field_Analysis__c = analysisId;
                 record.Step_Number__c = instruction.stepNumber;
-                record.Instruction_Text__c = instruction.text.trim(); // Trim whitespace
+                record.Instruction_Text__c = instruction.text.trim();
                 record.Is_Active__c = true;
                 
-                // Convert field list to comma-separated string
+                // Set related fields
                 if (instruction.fields != null && !instruction.fields.isEmpty()) {
                     record.Related_Fields__c = String.join(instruction.fields, ', ');
                 } else {
                     record.Related_Fields__c = '';
                 }
                 
-                Console.log('Created record for upsert: Field_Analysis__c=' + record.Field_Analysis__c + 
-                           ', Step_Number__c=' + record.Step_Number__c + 
-                           ', Instruction_Text__c=' + record.Instruction_Text__c);
-                
-                recordsToUpsert.add(record);
+                recordsToInsert.add(record);
             }
             
-            if (!recordsToUpsert.isEmpty()) {
-                upsert recordsToUpsert;
-                Console.log('saveInstructions: Successfully upserted ' + recordsToUpsert.size() + ' instruction records');
+            if (!recordsToInsert.isEmpty()) {
+                insert recordsToInsert;
+                Console.log('Successfully created ' + recordsToInsert.size() + ' instruction records');
+                return 'Successfully created ' + recordsToInsert.size() + ' instruction records';
+            } else {
+                return 'No valid instructions to create';
             }
-            
-            return 'Successfully saved ' + recordsToUpsert.size() + ' instruction records';
             
         } catch (Exception e) {
-            Console.log('Error in saveInstructions: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Failed to save instructions: ' + e.getMessage());
+            Console.log('Error in InstructionManagerService.createInstructions: ' + e.getMessage());
+            throw new AuraHandledException('Failed to create instructions: ' + e.getMessage());
         }
     }
     
     @AuraEnabled
     public static String deleteInstruction(String instructionId) {
         try {
-            Console.log('deleteInstruction: Starting for instructionId: ' + instructionId);
+            Console.log('InstructionManagerService.deleteInstruction: Starting for instructionId: ' + instructionId);
             
             if (String.isBlank(instructionId)) {
                 throw new IllegalArgumentException('Instruction ID cannot be blank');
@@ -214,99 +188,74 @@ public with sharing class InstructionManagerService {
             
             // Check permissions
             if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isDeletable()) {
-                throw new AuraHandledException('No permission to delete Dynamic Field Instructions records');
+                throw new AuraHandledException('No permission to delete instruction records');
             }
             
             List<Dynamic_Field_Instructions__c> recordsToDelete = [
-                SELECT Id 
-                FROM Dynamic_Field_Instructions__c 
+                SELECT Id FROM Dynamic_Field_Instructions__c 
                 WHERE Id = :instructionId 
                 LIMIT 1
             ];
             
             if (!recordsToDelete.isEmpty()) {
                 delete recordsToDelete;
-                Console.log('deleteInstruction: Successfully deleted instruction record');
+                Console.log('Successfully deleted instruction record');
                 return 'Instruction deleted successfully';
             } else {
                 throw new AuraHandledException('Instruction record not found');
             }
             
         } catch (Exception e) {
-            Console.log('Error in deleteInstruction: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
+            Console.log('Error in InstructionManagerService.deleteInstruction: ' + e.getMessage());
             throw new AuraHandledException('Failed to delete instruction: ' + e.getMessage());
         }
     }
     
-    @AuraEnabled(cacheable=true)
-    public static List<DynamicObjectService.InstructionStep> getInstructionsForObject(String objectName, String analysisId) {
-        List<DynamicObjectService.InstructionStep> instructions = new List<DynamicObjectService.InstructionStep>();
-        
+    @AuraEnabled
+    public static String updateInstruction(String instructionId, String instructionText, List<String> relatedFields) {
         try {
-            Console.log('getInstructionsForObject: Getting instructions for object: ' + objectName + ', analysisId: ' + analysisId);
+            Console.log('InstructionManagerService.updateInstruction: Starting for instructionId: ' + instructionId);
             
-            if (String.isBlank(objectName) && String.isBlank(analysisId)) {
-                return instructions;
+            if (String.isBlank(instructionId)) {
+                throw new IllegalArgumentException('Instruction ID cannot be blank');
+            }
+            
+            if (String.isBlank(instructionText)) {
+                throw new IllegalArgumentException('Instruction text cannot be blank');
             }
             
             // Check permissions
-            if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isAccessible()) {
-                Console.log('getInstructionsForObject: No access to Dynamic Field Instructions, returning empty list');
-                return instructions;
+            if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isUpdateable()) {
+                throw new AuraHandledException('No permission to update instruction records');
             }
             
-            List<Dynamic_Field_Instructions__c> instructionRecords = new List<Dynamic_Field_Instructions__c>();
+            List<Dynamic_Field_Instructions__c> recordsToUpdate = [
+                SELECT Id, Instruction_Text__c, Related_Fields__c
+                FROM Dynamic_Field_Instructions__c 
+                WHERE Id = :instructionId 
+                LIMIT 1
+            ];
             
-            if (String.isNotBlank(analysisId)) {
-                instructionRecords = [
-                    SELECT Step_Number__c, Instruction_Text__c, Related_Fields__c
-                    FROM Dynamic_Field_Instructions__c
-                    WHERE Field_Analysis__c = :analysisId AND Is_Active__c = true
-                    ORDER BY Step_Number__c ASC
-                ];
-            } else if (String.isNotBlank(objectName)) {
-                // If we only have objectName, we need to find instructions via the relationship
-                instructionRecords = [
-                    SELECT Step_Number__c, Instruction_Text__c, Related_Fields__c
-                    FROM Dynamic_Field_Instructions__c
-                    WHERE Field_Analysis__r.Object_Name__c = :objectName AND Is_Active__c = true
-                    ORDER BY Step_Number__c ASC
-                ];
-            }
-            
-            Console.log('getInstructionsForObject: Found ' + instructionRecords.size() + ' instruction records');
-            
-            for (Dynamic_Field_Instructions__c record : instructionRecords) {
-                List<String> stepFields = new List<String>();
+            if (!recordsToUpdate.isEmpty()) {
+                Dynamic_Field_Instructions__c record = recordsToUpdate[0];
+                record.Instruction_Text__c = instructionText.trim();
                 
-                // Parse related fields
-                if (String.isNotBlank(record.Related_Fields__c)) {
-                    String[] fieldArray = record.Related_Fields__c.split(',');
-                    for (String field : fieldArray) {
-                        String fieldName = field.trim();
-                        if (String.isNotBlank(fieldName)) {
-                            stepFields.add(fieldName);
-                        }
-                    }
+                if (relatedFields != null && !relatedFields.isEmpty()) {
+                    record.Related_Fields__c = String.join(relatedFields, ', ');
+                } else {
+                    record.Related_Fields__c = '';
                 }
                 
-                instructions.add(new DynamicObjectService.InstructionStep(
-                    record.Step_Number__c != null ? record.Step_Number__c.intValue() : 0,
-                    record.Instruction_Text__c != null ? record.Instruction_Text__c : '',
-                    stepFields
-                ));
+                update record;
+                Console.log('Successfully updated instruction record');
+                return 'Instruction updated successfully';
+            } else {
+                throw new AuraHandledException('Instruction record not found');
             }
             
-            Console.log('getInstructionsForObject: Returning ' + instructions.size() + ' instructions');
-            
         } catch (Exception e) {
-            Console.log('Error in getInstructionsForObject: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
-            // Don't throw exception for instructions, just return empty list
-            return new List<DynamicObjectService.InstructionStep>();
+            Console.log('Error in InstructionManagerService.updateInstruction: ' + e.getMessage());
+            throw new AuraHandledException('Failed to update instruction: ' + e.getMessage());
         }
-        
-        return instructions;
     }
 }

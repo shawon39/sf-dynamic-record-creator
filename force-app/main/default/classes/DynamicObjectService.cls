@@ -112,10 +112,14 @@ public with sharing class DynamicObjectService {
                 throw new AuraHandledException('No access to Dynamic Field Analysis records');
             }
             
-            // Get the most recent analysis record for this object
+            // Get the most recent analysis record for this object with its related instructions
             List<Dynamic_Field_Analysis__c> analysisRecords = [
-                SELECT Object_Name__c, Record_Type_Id__c, Record_Type_Name__c, 
-                       Selected_Fields__c, Total_Fields_Count__c
+                SELECT Id, Object_Name__c, Record_Type_Id__c, Record_Type_Name__c, 
+                       Selected_Fields__c, Total_Fields_Count__c,
+                       (SELECT Id, Step_Number__c, Instruction_Text__c, Related_Fields__c, Is_Active__c
+                        FROM Dynamic_Field_Instructions__r 
+                        WHERE Is_Active__c = true 
+                        ORDER BY Step_Number__c ASC)
                 FROM Dynamic_Field_Analysis__c 
                 WHERE Object_Name__c = :objectName 
                 ORDER BY Analysis_Date__c DESC 
@@ -127,7 +131,8 @@ public with sharing class DynamicObjectService {
             }
             
             Dynamic_Field_Analysis__c analysisRecord = analysisRecords[0];
-            Console.log('getObjectFieldsData: Found analysis record for: ' + objectName);
+            Console.log('getObjectFieldsData: Found analysis record ID: ' + analysisRecord.Id + ' for object: ' + objectName);
+            Console.log('getObjectFieldsData: Found ' + analysisRecord.Dynamic_Field_Instructions__r.size() + ' related instructions');
             
             // Parse selected fields from comma-separated string
             List<String> fields = new List<String>();
@@ -143,9 +148,33 @@ public with sharing class DynamicObjectService {
             ObjectFieldsData result = new ObjectFieldsData(analysisRecord.Object_Name__c, fields);
             result.setRecordTypeInfo(analysisRecord.Record_Type_Id__c, analysisRecord.Record_Type_Name__c);
             
-            // Get custom instructions for this analysis record or object
-            List<InstructionStep> instructions = getObjectInstructions(objectName, analysisRecord.Id);
+            // Convert related instructions to InstructionStep objects
+            List<InstructionStep> instructions = new List<InstructionStep>();
+            for (Dynamic_Field_Instructions__c instructionRecord : analysisRecord.Dynamic_Field_Instructions__r) {
+                List<String> stepFields = new List<String>();
+                
+                // Parse related fields
+                if (String.isNotBlank(instructionRecord.Related_Fields__c)) {
+                    String[] fieldArray = instructionRecord.Related_Fields__c.split(',');
+                    for (String field : fieldArray) {
+                        String fieldName = field.trim();
+                        if (String.isNotBlank(fieldName)) {
+                            stepFields.add(fieldName);
+                        }
+                    }
+                }
+                
+                instructions.add(new InstructionStep(
+                    instructionRecord.Step_Number__c != null ? instructionRecord.Step_Number__c.intValue() : 0,
+                    instructionRecord.Instruction_Text__c != null ? instructionRecord.Instruction_Text__c : '',
+                    stepFields
+                ));
+                
+                Console.log('getObjectFieldsData: Added instruction step ' + instructionRecord.Step_Number__c + ': ' + instructionRecord.Instruction_Text__c);
+            }
+            
             result.setInstructions(instructions);
+            Console.log('getObjectFieldsData: Returning data with ' + instructions.size() + ' instructions');
             
             return result;
             
@@ -157,8 +186,25 @@ public with sharing class DynamicObjectService {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<InstructionStep> getObjectInstructions(String objectName, String analysisId) {
-        // Use the InstructionManagerService method for consistency
-        return InstructionManagerService.getInstructionsForObject(objectName, analysisId);
+    public static List<InstructionStep> getObjectInstructions(String analysisId) {
+        try {
+            // Get instructions using the InstructionManagerService
+            InstructionManagerService.InstructionData instructionData = InstructionManagerService.getInstructionsForAnalysis(analysisId);
+            
+            List<InstructionStep> result = new List<InstructionStep>();
+            for (InstructionManagerService.InstructionStep step : instructionData.instructions) {
+                result.add(new InstructionStep(
+                    step.stepNumber,
+                    step.text,
+                    step.fields
+                ));
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            Console.log('Error in getObjectInstructions: ' + e.getMessage());
+            throw new AuraHandledException('Failed to retrieve instructions: ' + e.getMessage());
+        }
     }
 } 

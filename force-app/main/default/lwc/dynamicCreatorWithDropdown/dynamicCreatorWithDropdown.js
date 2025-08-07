@@ -19,6 +19,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @track objectFieldsData = null;
     @track instructionSteps = [];
     @track filledFields = new Set();
+    @track completedSteps = new Set();
     @track isLoadingFields = false;
     @track isCreating = false;
     
@@ -64,6 +65,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
 
     resetFormState() {
         this.filledFields.clear();
+        this.completedSteps.clear();
         this.fieldsArray = [];
         this.objectFieldsData = null;
         this.instructionSteps = [];
@@ -202,6 +204,44 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         return stepFields.some(field => this.filledFields.has(field));
     }
 
+    // Update step progress based on filled fields
+    updateStepProgress() {
+        // Update completed steps based on field completion
+        this.updateCompletedSteps();
+        
+        // Update instruction step UI states
+        this.instructionSteps = this.instructionSteps.map((instruction, index) => {
+            const completedFieldsCount = instruction.fields.filter(field => 
+                this.filledFields.has(field)
+            ).length;
+            
+            const isCompleted = this.completedSteps.has(instruction.id);
+            const completionPercentage = instruction.totalFields > 0 
+                ? Math.round((completedFieldsCount / instruction.totalFields) * 100) 
+                : 0;
+            
+            // Determine if step is active (first step or previous step is completed)
+            const previousStepCompleted = index === 0 || 
+                (this.instructionSteps[index - 1] && 
+                 this.completedSteps.has(this.instructionSteps[index - 1].id));
+            
+            return {
+                ...instruction,
+                completedFields: completedFieldsCount,
+                completionPercentage: completionPercentage,
+                isCompleted: isCompleted,
+                isActive: !isCompleted && previousStepCompleted,
+                cssClass: isCompleted 
+                    ? 'instruction-step slds-var-m-bottom_small slds-theme_success'
+                    : 'instruction-step slds-var-m-bottom_small',
+                textCssClass: isCompleted 
+                    ? 'slds-text-body_regular slds-text-color_success'
+                    : 'slds-text-body_regular',
+                fieldCssClass: isCompleted ? 'slds-theme_success' : ''
+            };
+        });
+    }
+
     // Update completed steps
     updateCompletedSteps() {
         this.completedSteps.clear();
@@ -210,6 +250,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
                 this.completedSteps.add(instruction.id);
             }
         });
+        // Force reactivity
         this.completedSteps = new Set(this.completedSteps);
     }
 

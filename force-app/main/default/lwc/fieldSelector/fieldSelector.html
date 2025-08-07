@@ -1,0 +1,134 @@
+<template>
+    <lightning-card title="Select and Analyze Fields" icon-name="standard:custom_field">
+        <div class="slds-var-p-around_large">
+            
+            <!-- Object Information -->
+            <div class="slds-var-m-bottom_large">
+                <div class="slds-box slds-theme_shade">
+                    <div class="slds-grid slds-gutters">
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label slds-text-body_small">Object:</label>
+                                <div class="slds-form-element__control">
+                                    <span class="slds-text-body_regular">{selectedObject}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label slds-text-body_small">Record Type:</label>
+                                <div class="slds-form-element__control">
+                                    <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Field Selection -->
+            <div class="slds-grid slds-gutters slds-wrap slds-var-m-bottom_large">
+                <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
+                    <lightning-card title="Available Fields" icon-name="standard:picklist_choice">
+                        <div class="slds-var-p-around_large">
+                            <template if:true={isLoadingFields}>
+                                <lightning-spinner alternative-text="Loading fields..." size="medium"></lightning-spinner>
+                            </template>
+                            
+                            <template if:false={isLoadingFields}>
+                                <div class="slds-var-m-bottom_small">
+                                    <span class="slds-text-body_small slds-text-color_weak">
+                                        {totalFieldsCount} fields available
+                                    </span>
+                                </div>
+                                
+                                <lightning-dual-listbox
+                                    name="fieldSelector"
+                                    label="Select Fields for Analysis"
+                                    source-label="Available Fields"
+                                    selected-label="Selected Fields"
+                                    field-level-help="Choose the fields you want to include in the dynamic record creation process"
+                                    options={availableFields}
+                                    value={selectedFields}
+                                    onchange={handleFieldSelection}
+                                    min="1"
+                                    max="50">
+                                </lightning-dual-listbox>
+                                
+                                <!-- Analyze Button -->
+                                <div class="slds-text-align_center slds-var-m-top_medium">
+                                    <lightning-button 
+                                        label="Analyze Selected Fields" 
+                                        variant="brand"
+                                        icon-name="utility:apex"
+                                        disabled={isAnalyzeDisabled}
+                                        onclick={handleAnalyzeFields}
+                                        class="slds-var-m-bottom_small">
+                                    </lightning-button>
+                                    
+                                    <template if:true={isAnalyzing}>
+                                        <div class="slds-var-m-top_small">
+                                            <lightning-spinner alternative-text="Analyzing fields..." size="small"></lightning-spinner>
+                                            <div class="slds-text-body_small slds-text-color_weak">
+                                                Analyzing field metadata and relationships...
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </lightning-card>
+                </div>
+                
+                <!-- Analysis Report -->
+                <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
+                    <lightning-card title="Analysis Report" icon-name="standard:article">
+                        <div class="slds-var-p-around_large">
+                            <template if:false={showAnalysisResults}>
+                                <div class="slds-text-align_center slds-var-p-vertical_large">
+                                    <div class="slds-text-heading_small slds-text-color_weak slds-var-m-bottom_small">
+                                        {selectedFieldsCount} fields selected
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        Select fields and click "Analyze Selected Fields" to generate a detailed analysis report.
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template if:true={showAnalysisResults}>
+                                <div class="slds-scrollable_y" style="height: 400px;">
+                                    <pre class="slds-text-body_small">{analysisReport}</pre>
+                                </div>
+                            </template>
+                        </div>
+                    </lightning-card>
+                </div>
+            </div>
+            
+            
+            <!-- Navigation Buttons -->
+            <div class="slds-var-m-top_large">
+                <div class="slds-grid slds-gutters">
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                        <lightning-button 
+                            label="Back to Object Selection" 
+                            variant="neutral"
+                            icon-name="utility:back"
+                            onclick={handleGoBack}>
+                        </lightning-button>
+                    </div>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-text-align_right">
+                        <lightning-button 
+                            label="Continue to Instructions" 
+                            variant="brand"
+                            icon-name="utility:forward"
+                            icon-position="right"
+                            disabled={isContinueDisabled}
+                            onclick={handleContinue}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </lightning-card>
+</template>

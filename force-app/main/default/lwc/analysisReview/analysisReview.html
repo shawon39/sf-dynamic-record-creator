@@ -1,0 +1,177 @@
+<template>
+    <lightning-card title="Review & Save Analysis" icon-name="standard:approval">
+        <div class="slds-var-p-around_medium">
+            
+            <!-- Analysis Summary -->
+            <div class="slds-grid slds-gutters slds-wrap slds-var-m-bottom_large">
+                
+                <!-- Object Information -->
+                <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
+                    <lightning-card title="Object Configuration" icon-name="standard:account">
+                        <div class="slds-var-p-around_medium">
+                            <div class="slds-form-element slds-var-m-bottom_small">
+                                <label class="slds-form-element__label slds-text-body_small">Object:</label>
+                                <div class="slds-form-element__control">
+                                    <span class="slds-text-body_regular" style="color: #0176d3;">{selectedObject}</span>
+                                </div>
+                            </div>
+                            <div class="slds-form-element slds-var-m-bottom_small">
+                                <label class="slds-form-element__label slds-text-body_small">Record Type:</label>
+                                <div class="slds-form-element__control">
+                                    <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
+                                </div>
+                            </div>
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label slds-text-body_small">Fields Selected:</label>
+                                <div class="slds-form-element__control">
+                                    <span class="slds-text-body_regular" style="color: #0176d3;">{selectedFieldsCount}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </lightning-card>
+                </div>
+                
+                <!-- Instructions Summary -->
+                <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
+                    <lightning-card title="Instructions Summary" icon-name="standard:steps">
+                        <div class="slds-var-p-around_medium">
+                            <template if:true={hasInstructions}>
+                                <div class="slds-text-align_center slds-var-m-bottom_medium">
+                                    <div class="slds-text-heading_large slds-text-color_success">
+                                        {instructionsCount}
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        instruction steps created
+                                    </div>
+                                </div>
+                                
+                                <div class="slds-scrollable_y" style="height: 150px;">
+                                    <template for:each={instructions} for:item="instruction">
+                                        <div key={instruction.stepNumber} class="slds-var-m-bottom_small">
+                                            <div class="slds-media">
+                                                <div class="slds-media__figure">
+                                                    <span class="slds-badge slds-badge_lightest">
+                                                        {instruction.stepNumber}
+                                                    </span>
+                                                </div>
+                                                <div class="slds-media__body">
+                                                    <div class="slds-text-body_small">
+                                                        {instruction.text}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <template if:false={hasInstructions}>
+                                <div class="slds-text-align_center">
+                                    <lightning-icon icon-name="utility:info" size="medium" variant="warning"></lightning-icon>
+                                    <div class="slds-text-body_regular slds-var-m-top_small">
+                                        No instructions created
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        Users will see only the fields without guidance
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </lightning-card>
+                </div>
+            </div>
+            
+            <!-- Selected Fields Detail -->
+            <div class="slds-var-m-bottom_large">
+                <lightning-card title="Selected Fields" icon-name="standard:custom_field">
+                    <div class="slds-var-p-around_medium">
+                        <div class="slds-text-body_small slds-var-m-bottom_small">
+                            Fields that will be included in the dynamic record creation:
+                        </div>
+                        <div class="slds-box slds-theme_shade">
+                            <div class="slds-text-body_regular">
+                                {selectedFieldsList}
+                            </div>
+                        </div>
+                    </div>
+                </lightning-card>
+            </div>
+            
+            <!-- Analysis Report (if available) -->
+            <template if:true={analysisReport}>
+                <div class="slds-var-m-bottom_large">
+                    <lightning-card title="Field Analysis Report" icon-name="standard:report">
+                        <div class="slds-var-p-around_medium">
+                            <div class="slds-scrollable_y" style="height: 200px;">
+                                <pre class="slds-text-body_small">{analysisReport}</pre>
+                            </div>
+                        </div>
+                    </lightning-card>
+                </div>
+            </template>
+            
+            <!-- Save Confirmation -->
+            <div class="slds-var-m-bottom_large">
+                <div class="slds-box slds-theme_warning">
+                    <div class="slds-media">
+                        <div class="slds-media__figure">
+                            <lightning-icon icon-name="utility:warning" size="small" variant="warning"></lightning-icon>
+                        </div>
+                        <div class="slds-media__body">
+                            <h3 class="slds-text-heading_small">Ready to Save</h3>
+                            <div class="slds-text-body_small">
+                                This will create the field analysis configuration and make it available for dynamic record creation.
+                                <template if:true={hasInstructions}>
+                                    The {instructionsCount} instruction step(s) will guide users through the process.
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Buttons -->
+            <div class="slds-grid slds-gutters">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+                    <lightning-button 
+                        label="Back to Instructions" 
+                        variant="neutral"
+                        icon-name="utility:back"
+                        onclick={handleGoBack}
+                        disabled={isSaving}>
+                    </lightning-button>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-text-align_center">
+                    <lightning-button 
+                        label="Start Over" 
+                        variant="neutral"
+                        onclick={handleStartOver}
+                        disabled={isSaving}>
+                    </lightning-button>
+                </div>
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-text-align_right">
+                    <lightning-button 
+                        label="Save Analysis" 
+                        variant="brand"
+                        icon-name="utility:save"
+                        icon-position="right"
+                        onclick={handleSaveAnalysis}
+                        disabled={isSaving}>
+                    </lightning-button>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <template if:true={isSaving}>
+                <div class="slds-var-m-top_medium">
+                    <div class="slds-text-align_center">
+                        <lightning-spinner alternative-text="Saving analysis..." size="medium"></lightning-spinner>
+                        <div class="slds-text-body_small slds-text-color_weak slds-var-m-top_small">
+                            Creating analysis configuration and instructions...
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

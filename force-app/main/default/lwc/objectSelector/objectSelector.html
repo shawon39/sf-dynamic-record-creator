@@ -1,0 +1,91 @@
+<template>
+    <lightning-card title="Select Object and Record Type" icon-name="standard:account">
+        <div class="slds-var-p-around_medium">
+            
+            <!-- Object Selection -->
+            <div class="slds-grid slds-gutters slds-wrap">
+                <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                    <lightning-combobox
+                        name="objectSelector"
+                        label="Select Salesforce Object"
+                        placeholder="Choose an object..."
+                        options={objectOptions}
+                        value={selectedObject}
+                        onchange={handleObjectChange}
+                        is-loading={isLoadingObjects}
+                        required>
+                    </lightning-combobox>
+                </div>
+                
+                <!-- Record Type Selection (if available) -->
+                <template if:true={showRecordTypeSelector}>
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                        <lightning-combobox
+                            name="recordTypeSelector"
+                            label="Select Record Type"
+                            placeholder="Choose a record type..."
+                            options={recordTypeOptions}
+                            value={selectedRecordType}
+                            onchange={handleRecordTypeChange}
+                            is-loading={isLoadingRecordTypes}
+                            required>
+                        </lightning-combobox>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- Selected Object Info -->
+            <template if:true={selectedObject}>
+                <div class="slds-var-m-top_medium">
+                    <div class="slds-box slds-theme_shade">
+                        <h3 class="slds-text-heading_small slds-var-m-bottom_small">
+                            Selected Configuration
+                        </h3>
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label slds-text-body_small">Object:</label>
+                                    <div class="slds-form-element__control">
+                                        <span class="slds-text-body_regular">{selectedObject}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label slds-text-body_small">Record Type:</label>
+                                    <div class="slds-form-element__control">
+                                        <span class="slds-text-body_regular">{selectedRecordTypeName}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Record Type Description -->
+                        <template if:true={selectedRecordTypeDescription}>
+                            <div class="slds-var-m-top_small">
+                                <div class="slds-form-element">
+                                    <label class="slds-form-element__label slds-text-body_small">Description:</label>
+                                    <div class="slds-form-element__control">
+                                        <span class="slds-text-body_small slds-text-color_weak">{selectedRecordTypeDescription}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Continue Button -->
+            <div class="slds-var-m-top_large slds-text-align_center">
+                <lightning-button 
+                    label="Continue to Field Selection" 
+                    variant="brand"
+                    icon-name="utility:forward"
+                    icon-position="right"
+                    disabled={isDisabled}
+                    onclick={handleContinue}>
+                </lightning-button>
+            </div>
+        </div>
+    </lightning-card>
+</template>
