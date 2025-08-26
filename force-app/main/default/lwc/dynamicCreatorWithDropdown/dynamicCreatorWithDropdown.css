@@ -1,0 +1,114 @@
+/* Progress Indicator Styles - using SLDS standard classes */
+
+/* Custom click functionality for progress steps - enhanced styles moved below */
+
+.progress-step-clickable:focus {
+    outline: 2px solid #0176d3;
+    outline-offset: 2px;
+}
+
+/* Lightning Input Field Styling Hooks */
+lightning-input-field {
+    --slds-c-input-radius-border: 0.375rem;
+    --slds-c-textarea-radius-border: 0.375rem;
+    --slds-c-select-radius-border: 0.375rem;
+}
+
+/* Container border radius styling */
+.custom-container {
+    border-radius: 0.5rem;
+}
+
+/* Section header alignment and styling */
+.section-header {
+    margin: 0 !important;
+    margin-left: 4px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.25px !important;
+    font-size: 0.875rem !important;
+}
+
+/* Progress step clickable styling with border radius - keeping line alignment intact */
+.progress-step-clickable {
+    cursor: pointer;
+    border-radius: var(--slds-c-radius-border-small, 0.25rem) !important;
+    transition: background-color 0.2s ease;
+}
+
+.progress-step-clickable:hover {
+    background-color: var(--slds-c-color-background-row-hover, #f3f3f3) !important;
+}
+
+/* Add padding only to the content area, not the entire li element to preserve line alignment */
+.progress-step-clickable .custom-progress-content {
+    border-radius: var(--slds-c-radius-border-small, 0.25rem) !important;
+}
+
+/* Complete status styling using #03B70F for check icons in sections */
+.green-check-icon {
+    --slds-c-icon-color-foreground-default: #03B70F;
+}
+
+/* Complete status badge styling with more radius */
+.complete-badge {
+    background-color: #089812 !important;
+    color: #ffffff !important;
+    border-radius: 1rem !important;
+    padding: 0.25rem 0.75rem !important;
+}
+
+/* Focus highlight animation for main sections */
+.section-focused {
+    animation: sectionFocusHighlight 2s ease-in-out;
+    border: 2px solid #0176d3 !important;
+    border-radius: var(--slds-c-radius-border-medium, 0.5rem) !important;
+    position: relative;
+    z-index: 1;
+}
+
+@keyframes sectionFocusHighlight {
+    0% { 
+        box-shadow: 0 0 0 0 rgba(1, 118, 211, 0.7);
+    }
+    25% { 
+        box-shadow: 0 0 0 8px rgba(1, 118, 211, 0.5);
+    }
+    50% { 
+        box-shadow: 0 0 0 12px rgba(1, 118, 211, 0.3);
+    }
+    75% { 
+        box-shadow: 0 0 0 8px rgba(1, 118, 211, 0.2);
+    }
+    100% { 
+        box-shadow: 0 0 0 0 rgba(1, 118, 211, 0);
+    }
+}
+
+/* Smooth scrolling behavior */
+.section-container {
+    scroll-margin-top: 20px;
+    transition: border-color 0.2s ease;
+    border-radius: var(--slds-c-radius-border-medium, 0.5rem);
+}
+
+/* Section list container styling without border */
+.section-list-container {
+    background-color: var(--slds-c-color-background, #fff);
+    border: none;
+}
+
+/* Selected object display styling - using design tokens */
+.selected-object-display {
+    background-color: var(--slds-c-color-background-alt-inverse, #f4f2ff);
+    border-radius: var(--slds-c-border-radius-large, 0.5rem);
+    color: #6b46c1;
+    pointer-events: none;
+    user-select: none;
+}
+
+.selected-object-inline {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b46c1;
+}
+

@@ -2,6 +2,16 @@
     <lightning-card title="Review & Save Analysis" icon-name="standard:approval" class="review-container">
         <div class="slds-var-p-around_large">
             
+            <!-- Loading State for Analysis -->
+            <template if:true={isAnalyzing}>
+                <div class="slds-text-align_center slds-var-p-vertical_large">
+                    <lightning-spinner alternative-text="Analyzing fields..." size="medium"></lightning-spinner>
+                    <p class="slds-var-m-top_medium">Analyzing selected fields...</p>
+                </div>
+            </template>
+            
+            <template if:false={isAnalyzing}>
+            
             <!-- 1. Object Name and Record Type -->
             <div class="slds-box slds-theme_shade slds-var-m-bottom_large">
                 <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
@@ -38,30 +48,37 @@
                 </div>
             </template>
             
-            <!-- 4. Instructions and Fields -->
-            <template if:true={hasInstructions}>
+            <!-- 4. Sections with Field Analysis -->
+            <template if:true={hasSections}>
                 <div class="slds-box slds-var-m-bottom_large">
                     <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
-                        <lightning-icon icon-name="standard:steps" size="small" class="slds-var-m-right_small"></lightning-icon>
-                        Instructions ({instructionsCount} steps)
+                        <lightning-icon icon-name="standard:sections" size="small" class="slds-var-m-right_small"></lightning-icon>
+                        Form Sections ({sectionsCount})
                     </h2>
-                    <div class="slds-list_vertical slds-has-dividers_top">
-                        <template for:each={instructions} for:item="instruction">
-                            <div key={instruction.stepNumber} class="slds-list__item slds-var-p-around_medium">
-                                <div class="slds-var-m-bottom_small">
-                                    <span class="slds-badge slds-theme_success">Step {instruction.stepNumber}</span>
-                                </div>
-                                <div class="slds-text-body_regular slds-var-m-bottom_small">{instruction.text}</div>
-                                <template if:true={instruction.hasFields}>
-                                    <div class="slds-var-m-top_small">
-                                        <div class="slds-text-body_small slds-text-color_weak">
-                                            Related Fields: {instruction.fieldsText}
+                    
+                    <template for:each={sectionedFieldAnalysis} for:item="section">
+                        <div key={section.sectionOrder} class="slds-box slds-theme_shade slds-var-m-bottom_medium">
+                            <h3 class="slds-text-heading_small slds-var-m-bottom_small">
+                                Section {section.sectionOrder}: {section.sectionName}
+                            </h3>
+                            
+                            <!-- Fields in this section -->
+                            <div class="slds-grid slds-gutters slds-wrap">
+                                <template for:each={section.fields} for:item="field">
+                                    <div key={field.fieldName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small">
+                                        <div class="slds-box slds-box_x-small">
+                                            <div class="slds-text-body_small">
+                                                <strong>{field.fieldLabel}</strong> ({field.fieldType})
+                                                <template if:true={field.isRequired}>
+                                                    <span class="slds-text-color_error"> *Required</span>
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
                                 </template>
                             </div>
-                        </template>
-                    </div>
+                        </div>
+                    </template>
                 </div>
             </template>
             
@@ -70,7 +87,7 @@
                 <div class="slds-grid slds-grid_align-spread">
                     <div class="slds-col">
                         <lightning-button 
-                            label="Back to Instructions" 
+                            label="Back to Sections" 
                             variant="neutral"
                             icon-name="utility:back"
                             onclick={handleGoBack}
@@ -88,6 +105,8 @@
                     </div>
                 </div>
             </div>
+            
+            </template>
 
         </div>
     </lightning-card>

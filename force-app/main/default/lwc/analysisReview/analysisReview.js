@@ -1,10 +1,48 @@
 import { LightningElement, api, track } from 'lwc';
 import createCompleteAnalysis from '@salesforce/apex/AnalysisService.createCompleteAnalysis';
+import analyzeFieldsAndGenerateReport from '@salesforce/apex/FieldService.analyzeFieldsAndGenerateReport';
 
 export default class AnalysisReview extends LightningElement {
     @api analysisData;
     
     @track isSaving = false;
+    @track isAnalyzing = true; // Start with analysis
+    @track autoAnalysisReport = '';
+    @track autoFieldAnalysisDetails = [];
+    
+    async connectedCallback() {
+        // Auto-trigger field analysis when component loads
+        await this.performFieldAnalysis();
+    }
+    
+    async performFieldAnalysis() {
+        if (!this.analysisData?.allSelectedFields || this.analysisData.allSelectedFields.length === 0) {
+            this.isAnalyzing = false;
+            return;
+        }
+        
+        try {
+            this.isAnalyzing = true;
+            
+            const result = await analyzeFieldsAndGenerateReport({
+                objectName: this.analysisData.selectedObject,
+                selectedFields: this.analysisData.allSelectedFields
+            });
+            
+            this.autoAnalysisReport = result.analysisReport;
+            this.autoFieldAnalysisDetails = result.fieldDetails;
+            
+        } catch (error) {
+            console.error('Auto field analysis failed:', error);
+            this.dispatchEvent(new CustomEvent('error', {
+                detail: { 
+                    message: 'Field analysis failed: ' + (error.body?.message || error.message || 'Unknown error')
+                }
+            }));
+        } finally {
+            this.isAnalyzing = false;
+        }
+    }
     
     // Simple computed properties for display
     get selectedObject() {
@@ -16,7 +54,7 @@ export default class AnalysisReview extends LightningElement {
     }
     
     get selectedFields() {
-        return this.analysisData?.selectedFields || [];
+        return this.analysisData?.allSelectedFields || [];
     }
     
     get selectedFieldsCount() {
@@ -27,27 +65,52 @@ export default class AnalysisReview extends LightningElement {
         return this.selectedFields.join(', ');
     }
     
-    get instructions() {
-        const instructions = this.analysisData?.instructions || [];
-        return instructions.map(instruction => {
-            return {
-                ...instruction,
-                hasFields: instruction.fields && instruction.fields.length > 0,
-                fieldsText: instruction.fields ? instruction.fields.join(', ') : ''
-            };
-        });
+    // Sections (replacing instructions)
+    get sections() {
+        const sections = this.analysisData?.sections || [];
+        return sections.map(section => ({
+            sectionName: section.text, // Section name from instruction text
+            sectionOrder: section.stepNumber,
+            selectedFields: section.fields || [],
+            fieldsText: section.fields ? section.fields.join(', ') : '',
+            hasFields: section.fields && section.fields.length > 0
+        }));
     }
     
-    get instructionsCount() {
-        return this.instructions.length;
+    get sectionsCount() {
+        return this.sections.length;
     }
     
-    get hasInstructions() {
-        return this.instructionsCount > 0;
+    get hasSections() {
+        return this.sectionsCount > 0;
     }
     
     get analysisReport() {
-        return this.analysisData?.analysisReport || '';
+        return this.autoAnalysisReport || '';
+    }
+    
+    // Group field analysis by sections
+    get sectionedFieldAnalysis() {
+        const analysis = [];
+        
+        this.sections.forEach(section => {
+            const sectionAnalysis = {
+                sectionName: section.sectionName,
+                sectionOrder: section.sectionOrder,
+                fields: []
+            };
+            
+            section.selectedFields.forEach(fieldName => {
+                const fieldDetail = this.autoFieldAnalysisDetails.find(f => f.fieldName === fieldName);
+                if (fieldDetail) {
+                    sectionAnalysis.fields.push(fieldDetail);
+                }
+            });
+            
+            analysis.push(sectionAnalysis);
+        });
+        
+        return analysis;
     }
     
     get saveButtonLabel() {
@@ -72,11 +135,11 @@ export default class AnalysisReview extends LightningElement {
                 throw new Error('Selected fields are required');
             }
             
-            // Prepare instruction data for Apex
-            const instructionsData = this.instructions.map(instruction => ({
-                stepNumber: instruction.stepNumber,
-                text: instruction.text,
-                fields: instruction.fields || []
+            // Prepare section data for Apex (reusing instruction format)
+            const sectionsData = this.sections.map(section => ({
+                stepNumber: section.sectionOrder,
+                text: section.sectionName,
+                fields: section.selectedFields || []
             }));
             
             // Call Apex method to create complete analysis
@@ -86,11 +149,11 @@ export default class AnalysisReview extends LightningElement {
                 recordTypeId: this.analysisData.selectedRecordType || '',
                 selectedFields: this.selectedFields,
                 analysisDetails: this.analysisReport || 'Analysis completed',
-                instructions: instructionsData
+                instructions: sectionsData
             });
             
-            const message = this.hasInstructions 
-                ? `Analysis configuration with ${this.instructionsCount} instruction(s) saved successfully!`
+            const message = this.hasSections 
+                ? `Analysis configuration with ${this.sectionsCount} section(s) saved successfully!`
                 : `Analysis configuration saved successfully!`;
             
             // Reset saving state immediately on success

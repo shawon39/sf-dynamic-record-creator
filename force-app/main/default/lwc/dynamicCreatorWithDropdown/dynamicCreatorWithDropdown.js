@@ -7,6 +7,9 @@ import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import getAllCreateableObjects from '@salesforce/apex/DynamicObjectService.getAllCreateableObjects';
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 
+// Import static resource
+import AudioVisualization from '@salesforce/resourceUrl/AudioVisualization';
+
 export default class DynamicCreatorWithDropdown extends LightningElement {
     // Object selection
     @track objectOptions = [];
@@ -14,10 +17,10 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @track recordTypeId;
     @track recordTypeName;
     
-    // Field and form data
+     // Field and form data
     @track fieldsArray = [];
     @track objectFieldsData = null;
-    @track instructionSteps = [];
+    @track sectionSteps = []; // Updated from sectionSteps
     @track filledFields = new Set();
     @track completedSteps = new Set();
     @track isLoadingFields = false;
@@ -68,7 +71,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.completedSteps.clear();
         this.fieldsArray = [];
         this.objectFieldsData = null;
-        this.instructionSteps = [];
+        this.sectionSteps = [];
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
@@ -93,7 +96,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             this.fieldsArray = result.fields.map(fieldName => ({ apiName: fieldName }));
             
             // Process instructions for step-by-step guidance
-            this.processInstructions();
+            this.processSections();
             
         } catch (error) {
             console.error('Error loading field data:', error);
@@ -104,41 +107,67 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         }
     }
 
-    // ========== INSTRUCTION PROCESSING ==========
+    // ========== SECTION PROCESSING ==========
 
-    processInstructions() {
+    processSections() {
         if (!this.objectFieldsData) {
-            this.instructionSteps = [];
+            this.sectionSteps = [];
             return;
         }
 
-        // Only show instructions if we have custom instructions from database
+        // Only show sections if we have custom sections from database
         if (this.objectFieldsData.instructions && this.objectFieldsData.instructions.length > 0) {
-            console.log('Using custom instructions from database:', this.objectFieldsData.instructions);
-            this.instructionSteps = this.objectFieldsData.instructions.map(instruction => ({
-                ...instruction,
-                fieldComponents: instruction.fields.map(field => ({ apiName: field })),
+            console.log('Using custom sections from database:', this.objectFieldsData.instructions);
+            this.sectionSteps = this.objectFieldsData.instructions.map((section, index) => ({
+                ...section,
+                sectionName: section.text, // Section name stored in text field
+                fieldComponents: section.fields.map(field => ({ apiName: field })),
                 isCompleted: false,
-                isActive: false,
+                isActive: index === 0, // First section is active by default
                 completionPercentage: 0,
                 completedFields: 0,
-                totalFields: instruction.fields.length,
-                cssClass: 'instruction-step slds-var-m-bottom_small',
+                totalFields: section.fields.length,
+                cssClass: 'section-step slds-var-m-bottom_small',
                 textCssClass: 'slds-text-body_regular',
-                fieldCssClass: ''
+                fieldCssClass: '',
+                // Enhanced properties for section display
+                sectionId: `section-${section.id || index}`,
+                hasFields: section.fields && section.fields.length > 0
             }));
-            
-            // Mark first step as active
-            if (this.instructionSteps.length > 0) {
-                this.instructionSteps[0].isActive = true;
-            }
             
             // Update step progress
             this.updateStepProgress();
         } else {
-            console.log('No custom instructions found, not showing any instructions');
-            this.instructionSteps = [];
+            console.log('No custom sections found, not showing any sections');
+            this.sectionSteps = [];
         }
+    }
+    
+    // Get section progress for individual section
+    getSectionProgress(section) {
+        if (!section || !section.fieldComponents) {
+            return { completed: 0, total: 0, percentage: 0 };
+        }
+        
+        const filledFields = section.fieldComponents.filter(field => 
+            this.filledFields.has(field.apiName)
+        ).length;
+        
+        return {
+            completed: filledFields,
+            total: section.fieldComponents.length,
+            percentage: section.fieldComponents.length > 0 ? 
+                Math.round((filledFields / section.fieldComponents.length) * 100) : 0
+        };
+    }
+    
+    // Get sections with enhanced progress data
+    get sectionsWithProgress() {
+        return this.sectionSteps.map(section => ({
+            ...section,
+            progress: this.getSectionProgress(section),
+            isComplete: this.getSectionProgress(section).percentage === 100
+        }));
     }
 
 
@@ -160,6 +189,101 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         
         // Update step progress
         this.updateStepProgress();
+        
+        // Update section completion status
+        this.updateSectionProgress(fieldName);
+    }
+    
+    // Update progress for sections when field changes
+    updateSectionProgress(changedFieldName) {
+        this.sectionSteps = this.sectionSteps.map(section => {
+            // Check if the changed field belongs to this section
+            const fieldBelongsToSection = section.fieldComponents.some(
+                field => field.apiName === changedFieldName
+            );
+            
+            if (fieldBelongsToSection) {
+                const progress = this.getSectionProgress(section);
+                return {
+                    ...section,
+                    completionPercentage: progress.percentage,
+                    completedFields: progress.completed,
+                    isCompleted: progress.percentage === 100
+                };
+            }
+            
+            return section;
+        });
+    }
+    
+    // ========== SECTION NAVIGATION ==========
+    
+    // Handle section navigation clicks
+    handleSectionClick(event) {
+        const sectionId = event.currentTarget.dataset.sectionId;
+        console.log('Section clicked:', sectionId);
+        
+        this.focusOnSection(sectionId);
+        this.setActiveSection(sectionId);
+    }
+    
+    // Handle keyboard navigation for sections
+    handleSectionKeyDown(event) {
+        // Support Enter and Space keys for accessibility
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const sectionId = event.currentTarget.dataset.sectionId;
+            console.log('Section activated via keyboard:', sectionId);
+            
+            this.focusOnSection(sectionId);
+            this.setActiveSection(sectionId);
+        }
+    }
+    
+    // Scroll to and focus on specific section
+    focusOnSection(sectionId) {
+        try {
+            // Find the target section in the main form area
+            const targetSection = this.template.querySelector(`[data-section-id="${sectionId}"].section-container`);
+            
+            if (targetSection) {
+                console.log('Scrolling to section:', sectionId);
+                
+                // Smooth scroll to the section
+                targetSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start',
+                    inline: 'nearest'
+                });
+                
+                // Add visual focus highlight (temporary)
+                targetSection.classList.add('section-focused');
+                
+                // Remove highlight after animation
+                setTimeout(() => {
+                    targetSection.classList.remove('section-focused');
+                }, 2000);
+            } else {
+                console.warn('Target section not found:', sectionId);
+            }
+        } catch (error) {
+            console.error('Error focusing on section:', error);
+        }
+    }
+    
+    // Update active section in navigation
+    setActiveSection(sectionId) {
+        try {
+            // Update section active states
+            this.sectionSteps = this.sectionSteps.map(section => ({
+                ...section,
+                isActive: section.sectionId === sectionId
+            }));
+            
+            console.log('Active section set to:', sectionId);
+        } catch (error) {
+            console.error('Error setting active section:', error);
+        }
     }
 
     // Check if step is completed based on filled fields
@@ -172,7 +296,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     // Update step progress based on filled fields
     updateStepProgress() {
         // Only update if we have instructions
-        if (!this.instructionSteps || this.instructionSteps.length === 0) {
+        if (!this.sectionSteps || this.sectionSteps.length === 0) {
             return;
         }
         
@@ -180,7 +304,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.updateCompletedSteps();
         
         // Update instruction step UI states
-        this.instructionSteps = this.instructionSteps.map((instruction, index) => {
+        this.sectionSteps = this.sectionSteps.map((instruction, index) => {
             const completedFieldsCount = instruction.fields.filter(field => 
                 this.filledFields.has(field)
             ).length;
@@ -192,8 +316,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             
             // Determine if step is active (first step or previous step is completed)
             const previousStepCompleted = index === 0 || 
-                (this.instructionSteps[index - 1] && 
-                 this.completedSteps.has(this.instructionSteps[index - 1].id));
+                (this.sectionSteps[index - 1] && 
+                 this.completedSteps.has(this.sectionSteps[index - 1].id));
             
             return {
                 ...instruction,
@@ -215,8 +339,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     // Update completed steps
     updateCompletedSteps() {
         this.completedSteps.clear();
-        if (this.instructionSteps && this.instructionSteps.length > 0) {
-            this.instructionSteps.forEach(instruction => {
+        if (this.sectionSteps && this.sectionSteps.length > 0) {
+            this.sectionSteps.forEach(instruction => {
                 if (this.checkStepCompletion(instruction)) {
                     this.completedSteps.add(instruction.id);
                 }
@@ -237,7 +361,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.completedSteps.clear();
         this.fieldsArray = [];
         this.objectFieldsData = null;
-        this.instructionSteps = [];
+        this.sectionSteps = [];
         this.isLoadingFields = false;
     }
 
@@ -261,8 +385,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     }
 
     // Check if we have custom instructions to show
-    get hasInstructions() {
-        return this.instructionSteps && this.instructionSteps.length > 0;
+    get hasSections() {
+        return this.sectionSteps && this.sectionSteps.length > 0;
     }
 
     // Dynamic create button label
@@ -272,13 +396,22 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
 
     // Get progress indicator steps
     get progressSteps() {
-        return this.instructionSteps.map(instruction => ({
-            ...instruction,
-            isCompleted: this.completedSteps.has(instruction.id),
-            cssClass: this.completedSteps.has(instruction.id) 
-                ? 'slds-progress__item slds-is-completed' 
-                : 'slds-progress__item'
-        }));
+        return this.sectionSteps.map(section => {
+            const progress = this.getSectionProgress(section);
+            return {
+                ...section,
+                text: section.sectionName,
+                isCompleted: progress.percentage === 100,
+                isActive: section.isActive,
+                completedFields: progress.completed,
+                totalFields: progress.total,
+                cssClass: progress.percentage === 100
+                    ? 'slds-progress__item slds-is-completed progress-step-clickable' 
+                    : section.isActive 
+                        ? 'slds-progress__item slds-is-active progress-step-clickable'
+                        : 'slds-progress__item progress-step-clickable'
+            };
+        });
     }
 
     // Progress calculations
@@ -318,5 +451,10 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         } else {
             return 'An unknown error occurred';
         }
+    }
+
+    // Getter for AudioVisualization static resource URL
+    get audioVisualizationUrl() {
+        return AudioVisualization;
     }
 }

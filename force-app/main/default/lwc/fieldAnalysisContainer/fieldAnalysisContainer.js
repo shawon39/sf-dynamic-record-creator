@@ -9,7 +9,6 @@ export default class FieldAnalysisContainer extends LightningElement {
     get isStep1() { return this.currentStep === 'step1'; }
     get isStep2() { return this.currentStep === 'step2'; }
     get isStep3() { return this.currentStep === 'step3'; }
-    get isStep4() { return this.currentStep === 'step4'; }
     
     // Progress indicator configuration
     get currentStepNumber() {
@@ -17,7 +16,6 @@ export default class FieldAnalysisContainer extends LightningElement {
             case 'step1': return "1";
             case 'step2': return "2";
             case 'step3': return "3";
-            case 'step4': return "4";
             default: return "1";
         }
     }
@@ -28,19 +26,13 @@ export default class FieldAnalysisContainer extends LightningElement {
         this.analysisData.selectedObject = event.detail.objectName;
         this.analysisData.selectedRecordType = event.detail.recordTypeId;
         this.analysisData.selectedRecordTypeName = event.detail.recordTypeName;
-        this.currentStep = 'step2';
+        this.currentStep = 'step2'; // Go directly to Create Sections
     }
     
-    handleFieldsAnalyzed(event) {
-        this.analysisData.selectedFields = event.detail.selectedFields;
-        this.analysisData.analysisReport = event.detail.analysisReport;
-        this.analysisData.fieldAnalysisDetails = event.detail.fieldAnalysisDetails;
-        this.currentStep = 'step3';
-    }
-    
-    handleInstructionsCreated(event) {
-        this.analysisData.instructions = event.detail.instructions;
-        this.currentStep = 'step4';
+    handleSectionsCreated(event) {
+        this.analysisData.sections = event.detail.sections;
+        this.analysisData.allSelectedFields = event.detail.allSelectedFields;
+        this.currentStep = 'step3'; // Go to Review & Save (triggers auto field analysis)
     }
     
     handleAnalysisSaved(event) {
@@ -56,9 +48,6 @@ export default class FieldAnalysisContainer extends LightningElement {
                 break;
             case 'step3':
                 this.currentStep = 'step2';
-                break;
-            case 'step4':
-                this.currentStep = 'step3';
                 break;
         }
     }

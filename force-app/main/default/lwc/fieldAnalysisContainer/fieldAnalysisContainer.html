@@ -5,9 +5,8 @@
             <div class="slds-var-m-bottom_large">
                 <lightning-progress-indicator current-step={currentStepNumber} type="path" variant="base">
                     <lightning-progress-step label="Object Selection" value="1"></lightning-progress-step>
-                    <lightning-progress-step label="Field Analysis" value="2"></lightning-progress-step>
-                    <lightning-progress-step label="Create Instructions" value="3"></lightning-progress-step>
-                    <lightning-progress-step label="Review & Save" value="4"></lightning-progress-step>
+                    <lightning-progress-step label="Create Sections" value="2"></lightning-progress-step>
+                    <lightning-progress-step label="Review & Save" value="3"></lightning-progress-step>
                 </lightning-progress-indicator>
             </div>
             
@@ -24,35 +23,21 @@
                     </c-object-selector>
                 </template>
                 
-                <!-- Step 2: Field Analysis -->
+                <!-- Step 2: Create Sections -->
                 <template if:true={isStep2}>
-                    <c-field-selector 
+                    <c-section-builder
                         selected-object={analysisData.selectedObject}
                         selected-record-type={analysisData.selectedRecordType}
                         selected-record-type-name={analysisData.selectedRecordTypeName}
-                        initial-selected-fields={analysisData.selectedFields}
-                        initial-analysis-report={analysisData.analysisReport}
-                        initial-field-analysis-details={analysisData.fieldAnalysisDetails}
-                        onfieldsanalyzed={handleFieldsAnalyzed}
+                        initial-sections={analysisData.sections}
+                        onsectionscreated={handleSectionsCreated}
                         ongoback={handleGoBack}
                         onerror={handleError}>
-                    </c-field-selector>
+                    </c-section-builder>
                 </template>
                 
-                <!-- Step 3: Instruction Creation -->
+                <!-- Step 3: Review & Save -->
                 <template if:true={isStep3}>
-                    <c-instruction-builder 
-                        selected-object={analysisData.selectedObject}
-                        selected-fields={analysisData.selectedFields}
-                        initial-instructions={analysisData.instructions}
-                        oninstructionscreated={handleInstructionsCreated}
-                        ongoback={handleGoBack}
-                        onerror={handleError}>
-                    </c-instruction-builder>
-                </template>
-                
-                <!-- Step 4: Review & Save -->
-                <template if:true={isStep4}>
                     <c-analysis-review 
                         analysis-data={analysisData}
                         onanalysissaved={handleAnalysisSaved}

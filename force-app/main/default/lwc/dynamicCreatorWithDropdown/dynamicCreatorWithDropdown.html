@@ -1,73 +1,87 @@
 <!-- dynamicCreatorWithDropdown.html -->
 <template>
   <lightning-card title={cardTitle}>
+    <div class="slds-var-p-left_xx-large slds-var-p-right_xx-large slds-var-p-bottom_xx-large">
     <!-- Object selection -->
     <div class="slds-var-p-around_x-small">
-      <lightning-combobox
-        name="objectList"
-        label="Select Object"
-        placeholder="Choose Object"
-        options={objectOptions}
-        value={selectedObject}
-        onchange={handleObjectChange}>
-      </lightning-combobox>
-    </div>
-
-    <!-- Progress bar at the top when object is selected and has instructions -->
-    <template if:true={selectedObject}>
-      <template if:true={hasInstructions}>
-        <div class="slds-var-p-horizontal_x-small slds-var-p-vertical_x-small slds-border_bottom">
-        <div class="slds-grid slds-grid_align-spread slds-var-m-bottom_x-small">
-          <div class="slds-col">
-            <h3 class="slds-text-heading_small slds-text-color_default">
-              New {selectedObject}
-            </h3>
+      <template if:false={selectedObject}>
+        <lightning-combobox
+          name="objectList" 
+          label="Select Object"
+          placeholder="Choose Object"
+          options={objectOptions}
+          value={selectedObject}
+          onchange={handleObjectChange}>
+        </lightning-combobox>
+      </template>
+      
+      <!-- Selected object display with 50/50 layout -->
+      <template if:true={selectedObject}>
+        <div class="slds-grid slds-gutters">
+          <!-- Left: Selected object display (50% width) -->
+          <div class="slds-col slds-size_6-of-12">
+            <div class="selected-object-display slds-var-p-around_x-small">
+              <span class="selected-object-inline">Selected Object: {selectedObject}</span>
+            </div>
           </div>
-          <div class="slds-col">
-            <span class="slds-badge slds-theme_success" if:true={progressValue}>
-              {progressValue}% Complete
-            </span>
+          
+          <!-- Right: Audio section (50% width) -->
+          <div class="slds-col slds-size_6-of-12">
+            <div class="slds-grid slds-grid_align-end">
+              <div class="slds-col slds-size_6-of-12 slds-grid slds-grid_align-center" style="min-height: 60px;">
+                <img src={audioVisualizationUrl} alt="Audio Visualization" style="max-width: 100%; max-height: 50px; object-fit: contain; margin-bottom: 2px;" />
+              </div>
+            </div>
           </div>
-        </div>
-        <lightning-progress-bar 
-          value={progressValue} 
-          variant="circular"
-          size="large">
-        </lightning-progress-bar>
-        <div class="slds-grid slds-grid_align-spread slds-var-m-top_x-small">
-          <div class="slds-col">
-            <p class="slds-text-body_small slds-text-color_weak">
-              <lightning-icon icon-name="utility:check" size="xx-small" class="slds-var-m-right_x-small"></lightning-icon>
-              {filledCount} completed
-            </p>
-          </div>
-          <div class="slds-col">
-            <p class="slds-text-body_small slds-text-color_weak">
-              <lightning-icon icon-name="utility:list" size="xx-small" class="slds-var-m-right_x-small"></lightning-icon>
-              {totalFields} total fields
-            </p>
-          </div>
-        </div>
         </div>
       </template>
-    </template>
+    </div>
 
-    <!-- Two-column layout when object is selected and has instructions -->
+
+    <!-- Two-column layout when object is selected and has sections -->
     <template if:true={selectedObject}>
-      <template if:true={hasInstructions}>
+      <template if:true={hasSections}>
         <div class="slds-grid slds-gutters slds-var-p-around_x-small">
           
-          <!-- Left Column: Instructions (30% width) -->
+          <!-- Left Column: Enhanced Section Navigation (30% width) -->
           <div class="slds-col slds-size_4-of-12">
-            <div class="slds-box slds-theme_default slds-var-p-around_x-small">
-
-              <!-- Compact Progress Indicator -->
+            <div class="section-list-container slds-theme_default slds-var-p-around_small custom-container">
+              
+              <!-- Progress Summary -->
+              <div class="slds-grid slds-grid_align-spread slds-var-m-bottom_small">
+                <div class="slds-col">
+                  <span class="slds-text-body_regular">{progressValue}% Complete</span>
+                </div>
+                <div class="slds-col slds-text-align_right">
+                  <span class="slds-text-body_small slds-text-color_weak">{filledCount} / {totalFields}</span>
+                </div>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="slds-var-m-bottom_medium">
+                <lightning-progress-bar 
+                  value={progressValue} 
+                  variant="circular"
+                  size="large">
+                </lightning-progress-bar>
+              </div>
+              
+              <!-- Vertical Progress Indicator -->
               <div class="slds-progress slds-progress_vertical">
                 <ol class="slds-progress__list">
                   <template for:each={progressSteps} for:item="step">
-                    <li key={step.id} class={step.cssClass}>
+                    <li key={step.id} class={step.cssClass}
+                        data-section-id={step.sectionId}
+                        onclick={handleSectionClick}
+                        onkeydown={handleSectionKeyDown}
+                        title="Click to focus on {step.text}"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Navigate to {step.text} section">
+                      
                       <template if:true={step.isCompleted}>
-                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success" title="Complete">
+                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success" 
+                              title="Complete">
                           <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
                           <span class="slds-assistive-text">Complete</span>
                         </span>
@@ -79,24 +93,37 @@
                           </template>
                         </div>
                       </template>
-                      <div class="slds-progress__item_content slds-grid slds-grid_align-spread">
-                        {step.text}
+                      
+                      <div class="slds-progress__item_content custom-progress-content slds-grid slds-grid_align-spread">
+                        <div class="slds-col slds-grow">
+                          <h4 class="slds-text-body_regular">{step.text}</h4>
+                        </div>
+                        <div class="slds-col slds-no-flex">
+                          <template if:true={step.isCompleted}>
+                            <span class="slds-text-body_small slds-text-color_weak" style="font-weight: bold;">
+                              <lightning-icon icon-name="utility:check" size="xx-small" class="slds-var-m-right_small green-check-icon"></lightning-icon>
+                              {step.completedFields} / {step.totalFields}
+                            </span>
+                          </template>
+                          <template if:false={step.isCompleted}>
+                            <span class="slds-text-body_small slds-text-color_weak">
+                              {step.completedFields} / {step.totalFields}
+                            </span>
+                          </template>
+                        </div>
                       </div>
                     </li>
                   </template>
                 </ol>
-                <div aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressValue} role="progressbar">
-                  <span class="slds-assistive-text">Progress: {progressValue}%</span>
-                </div>
               </div>
             </div>
           </div>
 
           <!-- Right Column: Record Creation Form (70% width) -->
           <div class="slds-col slds-size_8-of-12">
-            <div class="slds-box slds-theme_default slds-var-p-around_x-small">
+            <div class="slds-box slds-theme_default slds-var-p-around_x-small custom-container">
 
-            <!-- Form fields -->
+            <!-- Section-based Form Layout -->
             <template if:true={fieldsArray.length}>
               <template if:false={isLoadingFields}>
                 <lightning-record-edit-form
@@ -108,17 +135,60 @@
                 >
                   <lightning-messages></lightning-messages>
                   
-                  <!-- Single column form layout -->
-                  <template for:each={fieldsArray} for:item="fld">
-                    <div key={fld.apiName} class="slds-var-m-bottom_x-small">
-                      <lightning-input-field
-                        field-name={fld.apiName}
-                        onchange={handleFieldChange}
-                      ></lightning-input-field>
+                  <!-- Section-based layout with 2-column fields -->
+                  <template for:each={sectionsWithProgress} for:item="section">
+                    <div key={section.sectionId} 
+                         class="slds-var-m-bottom_small section-container" 
+                         data-section-id={section.sectionId}>
+                      
+                      <!-- Section Header -->
+                      <div class="slds-grid slds-gutters slds-grid_align-spread slds-var-m-bottom_xx-small">
+                        <div class="slds-col slds-grow">
+                          <h3 class="section-header slds-var-m-left_x-small">
+                            {section.sectionName}
+                          </h3>
+                        </div>
+                        <div class="slds-col slds-no-flex">
+                          <template if:true={section.isComplete}>
+                            <span class="slds-badge complete-badge">
+                              Complete
+                            </span>
+                          </template>
+                          <template if:false={section.isComplete}>
+                            <span class="slds-badge">
+                              {section.progress.percentage}%
+                            </span>
+                          </template>
+                        </div>
+                      </div>
+                      
+                      <!-- 2-Column Field Grid -->
+                      <template if:true={section.hasFields}>
+                        <div class="slds-grid slds-gutters slds-wrap">
+                          <template for:each={section.fieldComponents} for:item="field">
+                            <div key={field.apiName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small">
+                              <lightning-input-field
+                                field-name={field.apiName}
+                                onchange={handleFieldChange}
+                              ></lightning-input-field>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
+                      
+                      <!-- Empty section message -->
+                      <template if:false={section.hasFields}>
+                        <div class="slds-text-align_center slds-var-p-vertical_medium">
+                          <p class="slds-text-body_small slds-text-color_weak">
+                            No fields configured for this section
+                          </p>
+                        </div>
+                      </template>
                     </div>
                   </template>
                   
-                  <div class="slds-var-p-top_x-small slds-text-align_right">
+                  <!-- Submit buttons -->
+                  <div class="slds-var-p-top_medium slds-text-align_right slds-border_top slds-var-p-top_medium">
                     <lightning-button 
                       label="Cancel"
                       variant="neutral"
@@ -163,8 +233,8 @@
         </div>
       </template>
       
-      <!-- Full-width layout when object is selected but no instructions -->
-      <template if:false={hasInstructions}>
+      <!-- Full-width layout when object is selected but no sections -->
+      <template if:false={hasSections}>
         <div class="slds-var-p-around_x-small">
           <div class="slds-box slds-theme_default slds-var-p-around_x-small">
 
@@ -180,15 +250,17 @@
                 >
                   <lightning-messages></lightning-messages>
                   
-                  <!-- Single column form layout -->
-                  <template for:each={fieldsArray} for:item="fld">
-                    <div key={fld.apiName} class="slds-var-m-bottom_x-small">
-                      <lightning-input-field
-                        field-name={fld.apiName}
-                        onchange={handleFieldChange}
-                      ></lightning-input-field>
-                    </div>
-                  </template>
+                  <!-- 2-column form layout (no sections) -->
+                  <div class="slds-grid slds-gutters slds-wrap">
+                    <template for:each={fieldsArray} for:item="fld">
+                      <div key={fld.apiName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small">
+                        <lightning-input-field
+                          field-name={fld.apiName}
+                          onchange={handleFieldChange}
+                        ></lightning-input-field>
+                      </div>
+                    </template>
+                  </div>
                   
                   <div class="slds-var-p-top_x-small slds-text-align_right">
                     <lightning-button 
@@ -247,5 +319,6 @@
         </p>
       </div>
     </template>
+    </div>
   </lightning-card>
 </template>
