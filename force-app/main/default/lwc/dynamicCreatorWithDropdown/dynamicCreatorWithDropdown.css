@@ -112,3 +112,20 @@ lightning-input-field {
     color: #6b46c1;
 }
 
+/* Minimize field column gaps while maintaining flexbox two-column layout */
+.minimal-gap-grid {
+    margin-left: calc(-1 * var(--slds-c-spacing-xxx-small, 0.125rem)) !important;
+    margin-right: calc(-1 * var(--slds-c-spacing-xxx-small, 0.125rem)) !important;
+}
+
+.minimal-gap-grid > [class*="slds-col"] {
+    padding-left: var(--slds-c-spacing-xxx-small, 0.125rem) !important;
+    padding-right: var(--slds-c-spacing-xxx-small, 0.125rem) !important;
+}
+
+/* Full-width field for odd-numbered field counts */
+.full-width-field {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
+

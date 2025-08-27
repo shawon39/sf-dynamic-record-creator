@@ -164,9 +164,9 @@
                       
                       <!-- 2-Column Field Grid -->
                       <template if:true={section.hasFields}>
-                        <div class="slds-grid slds-gutters slds-wrap">
+                        <div class="slds-grid slds-wrap minimal-gap-grid">
                           <template for:each={section.fieldComponents} for:item="field">
-                            <div key={field.apiName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small">
+                            <div key={field.apiName} class={field.cssClass}>
                               <lightning-input-field
                                 field-name={field.apiName}
                                 onchange={handleFieldChange}
@@ -251,9 +251,9 @@
                   <lightning-messages></lightning-messages>
                   
                   <!-- 2-column form layout (no sections) -->
-                  <div class="slds-grid slds-gutters slds-wrap">
+                  <div class="slds-grid slds-wrap minimal-gap-grid">
                     <template for:each={fieldsArray} for:item="fld">
-                      <div key={fld.apiName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small">
+                      <div key={fld.apiName} class={fld.cssClass}>
                         <lightning-input-field
                           field-name={fld.apiName}
                           onchange={handleFieldChange}

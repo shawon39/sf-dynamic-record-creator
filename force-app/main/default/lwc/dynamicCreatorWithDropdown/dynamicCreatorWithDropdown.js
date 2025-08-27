@@ -92,8 +92,17 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             this.recordTypeId = result.recordTypeId;
             this.recordTypeName = result.recordTypeName || '';
             
-            // Create fields array with API names
-            this.fieldsArray = result.fields.map(fieldName => ({ apiName: fieldName }));
+            // Create fields array with API names and full-width logic
+            this.fieldsArray = result.fields.map((fieldName, fieldIndex) => {
+                const isFullWidth = (result.fields.length % 2 === 1) && (fieldIndex === result.fields.length - 1);
+                return {
+                    apiName: fieldName,
+                    isFullWidth: isFullWidth,
+                    cssClass: isFullWidth 
+                        ? "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small full-width-field"
+                        : "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small"
+                };
+            });
             
             // Process instructions for step-by-step guidance
             this.processSections();
@@ -121,7 +130,16 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             this.sectionSteps = this.objectFieldsData.instructions.map((section, index) => ({
                 ...section,
                 sectionName: section.text, // Section name stored in text field
-                fieldComponents: section.fields.map(field => ({ apiName: field })),
+                fieldComponents: section.fields.map((field, fieldIndex) => {
+                    const isFullWidth = (section.fields.length % 2 === 1) && (fieldIndex === section.fields.length - 1);
+                    return {
+                        apiName: field,
+                        isFullWidth: isFullWidth,
+                        cssClass: isFullWidth 
+                            ? "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small full-width-field"
+                            : "slds-col slds-size_1-of-1 slds-small-size_6-of-12 slds-var-m-bottom_xx-small"
+                    };
+                }),
                 isCompleted: false,
                 isActive: index === 0, // First section is active by default
                 completionPercentage: 0,
