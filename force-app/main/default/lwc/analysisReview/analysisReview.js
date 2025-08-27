@@ -1,6 +1,6 @@
 import { LightningElement, api, track } from 'lwc';
-import createCompleteAnalysis from '@salesforce/apex/AnalysisService.createCompleteAnalysis';
-import analyzeFieldsAndGenerateReport from '@salesforce/apex/FieldService.analyzeFieldsAndGenerateReport';
+import createCompleteAnalysisWithJSON from '@salesforce/apex/AnalysisService.createCompleteAnalysisWithJSON';
+import analyzeFieldsAndGenerateJSONReport from '@salesforce/apex/FieldService.analyzeFieldsAndGenerateJSONReport';
 
 export default class AnalysisReview extends LightningElement {
     @api analysisData;
@@ -24,9 +24,19 @@ export default class AnalysisReview extends LightningElement {
         try {
             this.isAnalyzing = true;
             
-            const result = await analyzeFieldsAndGenerateReport({
+            // Prepare sections data for the new JSON method
+            const sectionsData = this.analysisData?.sections?.map(section => ({
+                stepNumber: section.stepNumber,
+                text: section.text,
+                fields: section.fields || []
+            })) || [];
+            
+            const result = await analyzeFieldsAndGenerateJSONReport({
                 objectName: this.analysisData.selectedObject,
-                selectedFields: this.analysisData.allSelectedFields
+                recordTypeName: this.analysisData.selectedRecordTypeName || 'Master',
+                recordTypeId: this.analysisData.selectedRecordType || '',
+                selectedFields: this.analysisData.allSelectedFields,
+                sections: sectionsData
             });
             
             this.autoAnalysisReport = result.analysisReport;
@@ -142,14 +152,13 @@ export default class AnalysisReview extends LightningElement {
                 fields: section.selectedFields || []
             }));
             
-            // Call Apex method to create complete analysis
-            const analysisId = await createCompleteAnalysis({
+            // Call Apex method to create complete analysis with JSON format
+            const analysisId = await createCompleteAnalysisWithJSON({
                 objectName: this.selectedObject,
                 recordTypeName: this.selectedRecordTypeName,
                 recordTypeId: this.analysisData.selectedRecordType || '',
                 selectedFields: this.selectedFields,
-                analysisDetails: this.analysisReport || 'Analysis completed',
-                instructions: sectionsData
+                sections: sectionsData
             });
             
             const message = this.hasSections 

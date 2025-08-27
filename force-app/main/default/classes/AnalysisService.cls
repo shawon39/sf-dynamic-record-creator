@@ -1,16 +1,12 @@
 public with sharing class AnalysisService {
     
     @AuraEnabled
-    public static String createCompleteAnalysis(String objectName, String recordTypeName, String recordTypeId,
-                                              List<String> selectedFields, String analysisDetails,
-                                              List<InstructionData> instructions) {
+    public static String createCompleteAnalysisWithJSON(String objectName, String recordTypeName, String recordTypeId,
+                                              List<String> selectedFields, List<InstructionData> sections) {
         Savepoint sp = Database.setSavepoint();
         
         try {
-            Console.log('AnalysisService.createCompleteAnalysis: Starting transaction');
-            Console.log('Object Name: ' + objectName);
-            Console.log('Selected Fields: ' + selectedFields);
-            Console.log('Instructions Count: ' + (instructions != null ? instructions.size() : 0));
+            Console.log('AnalysisService.createCompleteAnalysisWithJSON: Processing ' + selectedFields.size() + ' fields for ' + objectName);
             
             // Validate input parameters
             if (String.isBlank(objectName)) {
@@ -22,71 +18,63 @@ public with sharing class AnalysisService {
             }
             
             // Check CRUD permissions
-            
             if (!Schema.sObjectType.Dynamic_Field_Analysis__c.isCreateable()) {
                 throw new AuraHandledException('No permission to create Dynamic Field Analysis records');
             }
             
-            if (instructions != null && !instructions.isEmpty() && 
+            if (sections != null && !sections.isEmpty() && 
                 !Schema.sObjectType.Dynamic_Field_Instructions__c.isCreateable()) {
                 throw new AuraHandledException('No permission to create Dynamic Field Instructions records');
             }
             
-            // Create parent record
+            // Generate field analysis with JSON format
+            FieldService.FieldAnalysisResult analysisResult = FieldService.analyzeFieldsAndGenerateJSONReport(
+                objectName, recordTypeName, recordTypeId, selectedFields, sections);
+            
+            // Create parent record with JSON analysis details
             Dynamic_Field_Analysis__c analysisRecord = new Dynamic_Field_Analysis__c();
             analysisRecord.Object_Name__c = objectName;
             analysisRecord.Record_Type_Name__c = recordTypeName;
             analysisRecord.Record_Type_Id__c = recordTypeId;
             analysisRecord.Selected_Fields__c = String.join(selectedFields, ', ');
-            analysisRecord.Field_Analysis_Details__c = analysisDetails != null ? analysisDetails : 'Analysis completed';
+            analysisRecord.Field_Analysis_Details__c = analysisResult.analysisReport; // JSON format
             analysisRecord.Analysis_Date__c = DateTime.now();
             analysisRecord.Total_Fields_Count__c = selectedFields.size();
             
             insert analysisRecord;
-            Console.log('Parent record created with ID: ' + analysisRecord.Id);
             
-            // Create child instruction records
-            if (instructions != null && !instructions.isEmpty()) {
+            // Create child instruction records (sections)
+            if (sections != null && !sections.isEmpty()) {
                 List<Dynamic_Field_Instructions__c> instructionRecords = new List<Dynamic_Field_Instructions__c>();
                 
-                for (InstructionData instruction : instructions) {
-                    // Validate instruction data
-                    if (String.isBlank(instruction.text) || instruction.stepNumber == null) {
-                        Console.log('Skipping invalid instruction: ' + JSON.serialize(instruction));
-                        continue;
+                for (InstructionData section : sections) {
+                    Dynamic_Field_Instructions__c instructionRecord = createInstructionRecord(section, analysisRecord.Id);
+                    if (instructionRecord != null) {
+                        instructionRecords.add(instructionRecord);
                     }
-                    
-                    Dynamic_Field_Instructions__c instructionRecord = new Dynamic_Field_Instructions__c();
-                    instructionRecord.Field_Analysis__c = analysisRecord.Id;
-                    instructionRecord.Step_Number__c = instruction.stepNumber;
-                    instructionRecord.Instruction_Text__c = instruction.text.trim();
-                    instructionRecord.Is_Active__c = true;
-                    
-                    // Set related fields
-                    if (instruction.fields != null && !instruction.fields.isEmpty()) {
-                        instructionRecord.Related_Fields__c = String.join(instruction.fields, ', ');
-                    } else {
-                        instructionRecord.Related_Fields__c = '';
-                    }
-                    
-                    instructionRecords.add(instructionRecord);
                 }
                 
                 if (!instructionRecords.isEmpty()) {
                     insert instructionRecords;
-                    Console.log('Successfully created ' + instructionRecords.size() + ' instruction records');
                 }
             }
             
-            Console.log('Transaction completed successfully');
             return analysisRecord.Id;
             
         } catch (Exception e) {
             Database.rollback(sp);
             Console.log('ERROR: Transaction rolled back - ' + e.getMessage());
             Console.log('Error stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Failed to create complete analysis: ' + e.getMessage());
+            throw new AuraHandledException('Failed to create complete analysis with JSON: ' + e.getMessage());
         }
+    }
+    
+    @AuraEnabled
+    public static String createCompleteAnalysis(String objectName, String recordTypeName, String recordTypeId,
+                                              List<String> selectedFields, String analysisDetails,
+                                              List<InstructionData> instructions) {
+        // Legacy method - now internally uses JSON method for consistency
+        return createCompleteAnalysisWithJSON(objectName, recordTypeName, recordTypeId, selectedFields, instructions);
     }
     
     @AuraEnabled(cacheable=true)
@@ -140,5 +128,28 @@ public with sharing class AnalysisService {
             Console.log('Error in AnalysisService.getAllAnalyses: ' + e.getMessage());
             throw new AuraHandledException('Failed to retrieve analyses: ' + e.getMessage());
         }
+    }
+    
+    private static Dynamic_Field_Instructions__c createInstructionRecord(InstructionData section, Id analysisId) {
+        // Validate section data
+        if (String.isBlank(section.text) || section.stepNumber == null) {
+            Console.log('Skipping invalid section: ' + JSON.serialize(section));
+            return null;
+        }
+        
+        Dynamic_Field_Instructions__c instructionRecord = new Dynamic_Field_Instructions__c();
+        instructionRecord.Field_Analysis__c = analysisId;
+        instructionRecord.Step_Number__c = section.stepNumber;
+        instructionRecord.Instruction_Text__c = section.text.trim(); // Section Name
+        instructionRecord.Is_Active__c = true;
+        
+        // Set related fields for this section
+        if (section.fields != null && !section.fields.isEmpty()) {
+            instructionRecord.Related_Fields__c = String.join(section.fields, ', ');
+        } else {
+            instructionRecord.Related_Fields__c = '';
+        }
+        
+        return instructionRecord;
     }
 }
