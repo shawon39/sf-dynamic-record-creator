@@ -80,14 +80,14 @@
                         aria-label="Navigate to {step.text} section">
                       
                       <template if:true={step.isCompleted}>
-                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success" 
+                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success custom-progress__marker" 
                               title="Complete">
                           <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
                           <span class="slds-assistive-text">Complete</span>
                         </span>
                       </template>
                       <template if:false={step.isCompleted}>
-                        <div class="slds-progress__marker">
+                        <div class="slds-progress__marker custom-progress__marker">
                           <template if:true={step.isActive}>
                             <span class="slds-assistive-text">Active</span>
                           </template>
@@ -170,6 +170,7 @@
                               <lightning-input-field
                                 field-name={field.apiName}
                                 onchange={handleFieldChange}
+                                data-field-name={field.apiName}
                               ></lightning-input-field>
                             </div>
                           </template>
@@ -257,6 +258,7 @@
                         <lightning-input-field
                           field-name={fld.apiName}
                           onchange={handleFieldChange}
+                          data-field-name={fld.apiName}
                         ></lightning-input-field>
                       </div>
                     </template>

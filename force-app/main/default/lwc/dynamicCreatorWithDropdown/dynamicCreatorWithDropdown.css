@@ -35,10 +35,6 @@ lightning-input-field {
     transition: background-color 0.2s ease;
 }
 
-.progress-step-clickable:hover {
-    background-color: var(--slds-c-color-background-row-hover, #f3f3f3) !important;
-}
-
 /* Add padding only to the content area, not the entire li element to preserve line alignment */
 .progress-step-clickable .custom-progress-content {
     border-radius: var(--slds-c-radius-border-small, 0.25rem) !important;
@@ -66,6 +62,12 @@ lightning-input-field {
     z-index: 1;
 }
 
+/* Active section highlight - mimic the focus outline */
+.progress-step-active {
+    outline: 2px solid #0176d3 !important;
+    outline-offset: 2px !important;
+}
+
 @keyframes sectionFocusHighlight {
     0% { 
         box-shadow: 0 0 0 0 rgba(1, 118, 211, 0.7);
@@ -86,15 +88,19 @@ lightning-input-field {
 
 /* Smooth scrolling behavior */
 .section-container {
-    scroll-margin-top: 20px;
+    scroll-margin-top: 150px;
     transition: border-color 0.2s ease;
     border-radius: var(--slds-c-radius-border-medium, 0.5rem);
 }
 
-/* Section list container styling without border */
+/* Section list container styling without border - make it sticky */
 .section-list-container {
     background-color: var(--slds-c-color-background, #fff);
     border: none;
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 /* Selected object display styling - using design tokens */
@@ -127,5 +133,12 @@ lightning-input-field {
 .full-width-field {
     flex: 0 0 100% !important;
     max-width: 100% !important;
+}
+
+/* Custom progress marker override using styling hooks */
+.custom-progress__marker {
+    --slds-c-progress-marker-shadow: none;
+    --slds-c-progress-marker-color-box-shadow: transparent;
+    box-shadow: none !important;
 }
 

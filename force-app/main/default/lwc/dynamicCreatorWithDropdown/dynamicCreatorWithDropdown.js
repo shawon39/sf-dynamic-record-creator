@@ -30,6 +30,19 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @track showSuccessModal = false;
     @track createdRecordId;
 
+    connectedCallback() {
+        // Add event listeners for focus events on input fields
+        this.template.addEventListener('focusin', this.handleFieldFocus.bind(this));
+        // Add event listener for clicks to detect outside clicks
+        this.template.addEventListener('click', this.handleTemplateClick.bind(this));
+    }
+
+    disconnectedCallback() {
+        // Remove event listeners
+        this.template.removeEventListener('focusin', this.handleFieldFocus.bind(this));
+        this.template.removeEventListener('click', this.handleTemplateClick.bind(this));
+    }
+
     // Load dropdown options on init
     @wire(getAllCreateableObjects)
     wiredObjects({ data, error }) {
@@ -212,6 +225,97 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.updateSectionProgress(fieldName);
     }
     
+    handleFieldFocus(event) {
+        // Check if the focused element is within a lightning-input-field
+        const inputField = event.target.closest('lightning-input-field');
+        if (inputField) {
+            const fieldName = inputField.fieldName || inputField.dataset.fieldName;
+            console.log('Field focused:', fieldName);
+            
+            if (fieldName) {
+                // Find which section this field belongs to and set it as active
+                this.setActiveSectionByField(fieldName);
+            }
+        }
+    }
+    
+    handleTemplateClick(event) {
+        // Check if click is on a section item
+        const sectionItem = event.target.closest('.slds-progress__item');
+        if (sectionItem) {
+            // Click is on a section item, don't remove border
+            return;
+        }
+        
+        // Check if click is on or within an input field
+        const inputField = event.target.closest('lightning-input-field');
+        if (inputField) {
+            // Click is on an input field, don't remove border
+            return;
+        }
+        
+        // Click is outside section items and input fields, remove all active borders
+        console.log('Click outside section items and input fields, clearing active highlights');
+        this.clearAllActiveHighlights();
+    }
+    
+    // Clear all active highlights from section navigation
+    clearAllActiveHighlights() {
+        try {
+            // Remove active highlights from all navigation sections
+            const allNavSections = this.template.querySelectorAll('.slds-progress__item');
+            allNavSections.forEach(section => {
+                section.classList.remove('progress-step-active');
+            });
+            
+            // Clear active state from all sections (but keep filled field states)
+            this.sectionSteps = this.sectionSteps.map(section => ({
+                ...section,
+                isActive: false
+            }));
+            
+            console.log('Cleared all active section highlights');
+        } catch (error) {
+            console.error('Error clearing active highlights:', error);
+        }
+    }
+    
+    // Set active section based on which field is being edited
+    setActiveSectionByField(fieldName) {
+        const sectionWithField = this.sectionSteps.find(section => 
+            section.fieldComponents && section.fieldComponents.some(field => field.apiName === fieldName)
+        );
+        
+        if (sectionWithField) {
+            console.log(`Setting active section to ${sectionWithField.sectionId} for field ${fieldName}`);
+            this.setActiveSection(sectionWithField.sectionId);
+            // Add visual highlight to the navigation section item
+            this.highlightNavigationSection(sectionWithField.sectionId);
+        }
+    }
+    
+    // Add visual highlight to navigation section item - same as hover/click
+    highlightNavigationSection(sectionId) {
+        try {
+            // Remove existing active highlights
+            const allNavSections = this.template.querySelectorAll('.slds-progress__item');
+            allNavSections.forEach(section => {
+                section.classList.remove('progress-step-active');
+            });
+            
+            // Find and highlight the target navigation section
+            const targetNavSection = this.template.querySelector(`[data-section-id="${sectionId}"]`);
+            if (targetNavSection) {
+                console.log('Adding active highlight to navigation section:', sectionId);
+                
+                // Add the visual highlight with CSS outline
+                targetNavSection.classList.add('progress-step-active');
+            }
+        } catch (error) {
+            console.error('Error highlighting navigation section:', error);
+        }
+    }
+    
     // Update progress for sections when field changes
     updateSectionProgress(changedFieldName) {
         this.sectionSteps = this.sectionSteps.map(section => {
@@ -243,6 +347,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         
         this.focusOnSection(sectionId);
         this.setActiveSection(sectionId);
+        this.highlightNavigationSection(sectionId);
     }
     
     // Handle keyboard navigation for sections
@@ -255,6 +360,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             
             this.focusOnSection(sectionId);
             this.setActiveSection(sectionId);
+            this.highlightNavigationSection(sectionId);
         }
     }
     
@@ -332,17 +438,13 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
                 ? Math.round((completedFieldsCount / instruction.totalFields) * 100) 
                 : 0;
             
-            // Determine if step is active (first step or previous step is completed)
-            const previousStepCompleted = index === 0 || 
-                (this.sectionSteps[index - 1] && 
-                 this.completedSteps.has(this.sectionSteps[index - 1].id));
-            
             return {
                 ...instruction,
                 completedFields: completedFieldsCount,
                 completionPercentage: completionPercentage,
                 isCompleted: isCompleted,
-                isActive: !isCompleted && previousStepCompleted,
+                // Keep existing isActive state - don't change it automatically
+                isActive: instruction.isActive,
                 cssClass: isCompleted 
                     ? 'instruction-step slds-var-m-bottom_small slds-theme_success'
                     : 'instruction-step slds-var-m-bottom_small',
@@ -416,16 +518,20 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     get progressSteps() {
         return this.sectionSteps.map(section => {
             const progress = this.getSectionProgress(section);
+            const isCompleted = progress.percentage === 100;
+            const hasAnyFilledFields = progress.completed > 0;
+            const isActive = section.isActive || hasAnyFilledFields;
+            
             return {
                 ...section,
                 text: section.sectionName,
-                isCompleted: progress.percentage === 100,
-                isActive: section.isActive,
+                isCompleted: isCompleted,
+                isActive: isActive && !isCompleted, // Active only if has fields but not completed
                 completedFields: progress.completed,
                 totalFields: progress.total,
-                cssClass: progress.percentage === 100
+                cssClass: isCompleted
                     ? 'slds-progress__item slds-is-completed progress-step-clickable' 
-                    : section.isActive 
+                    : isActive 
                         ? 'slds-progress__item slds-is-active progress-step-clickable'
                         : 'slds-progress__item progress-step-clickable'
             };
