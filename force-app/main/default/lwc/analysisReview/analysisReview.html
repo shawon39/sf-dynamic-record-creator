@@ -13,7 +13,7 @@
             <template if:false={isAnalyzing}>
             
             <!-- 1. Object Name and Record Type -->
-            <div class="slds-box slds-theme_shade slds-var-m-bottom_large">
+            <div class="slds-box slds-theme_shade slds-var-m-bottom_large review-info-block">
                 <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
                     <lightning-icon icon-name="standard:account" size="small" class="slds-var-m-right_small"></lightning-icon>
                     Object Configuration
@@ -25,7 +25,7 @@
             </div>
             
             <!-- 2. Selected Fields and Count -->
-            <div class="slds-box slds-var-m-bottom_large">
+            <div class="slds-box slds-var-m-bottom_large review-info-block">
                 <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
                     <lightning-icon icon-name="custom:custom96" size="small" class="slds-var-m-right_small"></lightning-icon>
                     Selected Fields ({selectedFieldsCount})
@@ -37,7 +37,7 @@
             
             <!-- 3. Sections with Field Analysis -->
             <template if:true={hasSections}>
-                <div class="slds-box slds-var-m-bottom_large">
+                <div class="slds-box slds-var-m-bottom_large review-info-block">
                     <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
                         <lightning-icon icon-name="utility:section" size="small" class="slds-var-m-right_small"></lightning-icon>
                         Form Sections ({sectionsCount})
@@ -70,7 +70,7 @@
             </template>
             
             <!-- Navigation and Save Actions -->
-            <div class="slds-box slds-theme_shade">
+            <div class="slds-box slds-theme_shade review-save-block">
                 <div class="slds-grid slds-grid_align-spread">
                     <div class="slds-col">
                         <lightning-button 

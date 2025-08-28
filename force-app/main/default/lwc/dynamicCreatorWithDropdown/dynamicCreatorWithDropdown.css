@@ -7,13 +7,16 @@
     outline-offset: 2px;
 }
 
-/* Enhanced Border Radius for Inputs and Buttons */
+/* Enhanced Border Radius for All Inputs and Buttons */
 :host {
     --slds-c-button-radius-border: 1rem;
     --slds-c-input-radius-border: 0.6rem;
     --slds-c-textarea-radius-border: 0.6rem;
     --slds-c-select-radius-border: 0.6rem;
     --slds-c-combobox-radius-border: 0.6rem;
+    --slds-c-lookup-radius-border: 0.6rem;
+    --slds-c-pill-radius-border: 0.6rem;
+    --slds-c-listbox-radius-border: 0.6rem;
 }
 
 /* Lightning Input Field Styling Hooks */
@@ -21,12 +24,40 @@ lightning-input-field,
 lightning-input,
 lightning-textarea,
 lightning-combobox,
-lightning-button {
+lightning-lookup,
+lightning-record-picker,
+lightning-button,
+lightning-dual-listbox {
     --slds-c-button-radius-border: 1rem;
     --slds-c-input-radius-border: 0.6rem;
     --slds-c-textarea-radius-border: 0.6rem;
     --slds-c-select-radius-border: 0.6rem;
     --slds-c-combobox-radius-border: 0.6rem;
+    --slds-c-lookup-radius-border: 0.6rem;
+    --slds-c-pill-radius-border: 0.6rem;
+    --slds-c-listbox-radius-border: 0.6rem;
+}
+
+/* Custom read-only field styling */
+.custom-readonly-field lightning-input-field,
+.custom-readonly-field lightning-input,
+.custom-readonly-field lightning-textarea,
+.custom-readonly-field lightning-combobox {
+    --slds-c-input-radius-border: 0.6rem;
+}
+
+/* Custom lookup and pill styling using component-level hooks only */
+.custom-lookup-field,
+.custom-record-picker,
+.custom-lookup-pills {
+    --slds-c-combobox-radius-border: 0.6rem;
+    --slds-c-pill-radius-border: 0.6rem;
+}
+
+/* Info blocks styling using design tokens */
+.info-block {
+    --slds-c-card-radius-border: 0.6rem;
+    border-radius: 0.6rem !important;
 }
 
 /* Container border radius styling */

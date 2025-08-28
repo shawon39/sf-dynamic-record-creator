@@ -219,3 +219,11 @@ lightning-button {
 .sections-display-panel {
     border-radius: var(--slds-c-radius-border-large, 0.75rem);
 }
+
+/* Info blocks styling using design tokens */
+.object-info-block,
+.available-fields-info,
+.success-info-block {
+    --slds-c-card-radius-border: 0.6rem;
+    border-radius: 0.6rem !important;
+}
