@@ -110,19 +110,23 @@
                                         </lightning-dual-listbox>
                                     </div>
                                     
-                                    <div class="slds-var-m-top_medium slds-text-align_right">
-                                        <lightning-button-group>
+                                    <div class="slds-var-m-top_medium slds-grid slds-grid_align-end slds-gutters">
+                                        <div class="slds-col slds-no-flex">
                                             <lightning-button 
                                                 label="Cancel"
                                                 variant="neutral"
+                                                class="cancel-button"
                                                 onclick={handleCancelSection}>
                                             </lightning-button>
+                                        </div>
+                                        <div class="slds-col slds-no-flex">
                                             <lightning-button 
                                                 label="Save Section"
                                                 variant="brand"
+                                                class="save-button"
                                                 onclick={handleSaveSection}>
                                             </lightning-button>
-                                        </lightning-button-group>
+                                        </div>
                                     </div>
                                 </div>
                             </template>

@@ -176,3 +176,46 @@
 .section-card lightning-button-group {
     gap: var(--slds-c-spacing-xx-small, 0.25rem);
 }
+
+
+/* Enhanced Border Radius for Inputs and Buttons */
+:host {
+    --slds-c-button-radius-border: 1rem;
+    --slds-c-input-radius-border: 0.6rem;
+    --slds-c-textarea-radius-border: 0.6rem;
+    --slds-c-select-radius-border: 0.6rem;
+    --slds-c-combobox-radius-border: 0.6rem;
+    --slds-c-listbox-radius-border: 0.6rem;
+}
+
+/* Apply enhanced border radius to Lightning components */
+lightning-input,
+lightning-textarea,
+lightning-combobox,
+lightning-dual-listbox,
+lightning-button {
+    --slds-c-button-radius-border: 1rem;
+    --slds-c-input-radius-border: 0.6rem;
+    --slds-c-listbox-radius-border: 0.6rem;
+}
+
+/* Specific styling for Cancel and Save buttons */
+.cancel-button,
+.save-button {
+    --slds-c-button-radius-border: 1rem;
+    min-width: 120px;
+}
+
+/* Enhanced styling for section form inputs */
+.section-form lightning-input,
+.section-form lightning-dual-listbox {
+    --slds-c-input-radius-border: 0.6rem;
+    --slds-c-listbox-radius-border: 0.6rem;
+}
+
+/* Card border radius enhancement */
+.section-card,
+.section-creation-panel,
+.sections-display-panel {
+    border-radius: var(--slds-c-radius-border-large, 0.75rem);
+}

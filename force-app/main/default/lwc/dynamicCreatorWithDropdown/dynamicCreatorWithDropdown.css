@@ -7,11 +7,26 @@
     outline-offset: 2px;
 }
 
+/* Enhanced Border Radius for Inputs and Buttons */
+:host {
+    --slds-c-button-radius-border: 1rem;
+    --slds-c-input-radius-border: 0.6rem;
+    --slds-c-textarea-radius-border: 0.6rem;
+    --slds-c-select-radius-border: 0.6rem;
+    --slds-c-combobox-radius-border: 0.6rem;
+}
+
 /* Lightning Input Field Styling Hooks */
-lightning-input-field {
-    --slds-c-input-radius-border: 0.375rem;
-    --slds-c-textarea-radius-border: 0.375rem;
-    --slds-c-select-radius-border: 0.375rem;
+lightning-input-field,
+lightning-input,
+lightning-textarea,
+lightning-combobox,
+lightning-button {
+    --slds-c-button-radius-border: 1rem;
+    --slds-c-input-radius-border: 0.6rem;
+    --slds-c-textarea-radius-border: 0.6rem;
+    --slds-c-select-radius-border: 0.6rem;
+    --slds-c-combobox-radius-border: 0.6rem;
 }
 
 /* Container border radius styling */
