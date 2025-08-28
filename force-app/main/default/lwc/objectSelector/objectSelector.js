@@ -7,6 +7,7 @@ export default class ObjectSelector extends LightningElement {
     @api initialSelectedObject;
     @api initialSelectedRecordType;
     @api initialSelectedRecordTypeName;
+    @api initialFormName;
     
     @track objectOptions = [];
     @track selectedObject = '';
@@ -47,6 +48,7 @@ export default class ObjectSelector extends LightningElement {
             this.selectedObject = this.initialSelectedObject;
             this.selectedRecordType = this.initialSelectedRecordType || '';
             this.selectedRecordTypeName = this.initialSelectedRecordTypeName || '';
+            this.formName = this.initialFormName || '';
             
             if (this.selectedObject) {
                 await this.loadRecordTypes();

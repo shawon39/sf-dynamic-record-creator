@@ -227,3 +227,8 @@ lightning-button {
     --slds-c-card-radius-border: 0.6rem;
     border-radius: 0.6rem !important;
 }
+
+/* Success check icon styling with white color */
+.success-check-icon {
+    --slds-c-icon-color-foreground-default: #ffffff;
+}
