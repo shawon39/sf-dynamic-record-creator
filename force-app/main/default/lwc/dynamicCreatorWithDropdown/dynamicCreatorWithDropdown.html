@@ -2,23 +2,23 @@
 <template>
   <lightning-card title={cardTitle}>
     <div class="slds-var-p-left_xx-large slds-var-p-right_xx-large slds-var-p-bottom_xx-large">
-    <!-- Object selection -->
+    <!-- Form selection -->
     <div class="slds-var-p-around_x-small">
-      <template if:false={selectedObject}>
+      <template if:false={selectedForm}>
         <lightning-combobox
-          name="objectList" 
-          label="Select Object"
-          placeholder="Choose Object"
-          options={objectOptions}
-          value={selectedObject}
-          onchange={handleObjectChange}>
+          name="formList" 
+          label="Select Form Configuration"
+          placeholder="Choose Form Configuration"
+          options={formOptions}
+          value={selectedForm}
+          onchange={handleFormChange}>
         </lightning-combobox>
       </template>
       
-      <!-- Selected object display with 50/50 layout -->
-      <template if:true={selectedObject}>
+      <!-- Selected form display with 50/50 layout -->
+      <template if:true={selectedForm}>
         <div class="slds-grid slds-gutters">
-          <!-- Left: Selected object display (50% width) -->
+          <!-- Left: Selected form display (50% width) -->
           <div class="slds-col slds-size_6-of-12">
             <div class="selected-object-display slds-var-p-around_x-small">
               <span class="selected-object-inline">Selected Object: {selectedObject}</span>
@@ -38,8 +38,8 @@
     </div>
 
 
-    <!-- Two-column layout when object is selected and has sections -->
-    <template if:true={selectedObject}>
+    <!-- Two-column layout when form is selected and has sections -->
+    <template if:true={selectedForm}>
       <template if:true={hasSections}>
         <div class="slds-grid slds-gutters slds-var-p-around_x-small">
           
@@ -217,7 +217,7 @@
             </template>
             
             <!-- No fields available -->
-            <template if:true={selectedObject}>
+            <template if:true={selectedForm}>
               <template if:false={fieldsArray.length}>
                 <template if:false={isLoadingFields}>
                   <div class="slds-var-p-around_x-small slds-text-align_center">
@@ -292,7 +292,7 @@
             </template>
             
             <!-- No fields available -->
-            <template if:true={selectedObject}>
+            <template if:true={selectedForm}>
               <template if:false={fieldsArray.length}>
                 <template if:false={isLoadingFields}>
                   <div class="slds-var-p-around_x-small slds-text-align_center">

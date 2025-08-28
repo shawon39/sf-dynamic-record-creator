@@ -158,7 +158,8 @@ export default class AnalysisReview extends LightningElement {
                 recordTypeName: this.selectedRecordTypeName,
                 recordTypeId: this.analysisData.selectedRecordType || '',
                 selectedFields: this.selectedFields,
-                sections: sectionsData
+                sections: sectionsData,
+                formName: this.analysisData.formName || null
             });
             
             const message = this.hasSections 

@@ -11,8 +11,9 @@ import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObject
 import AudioVisualization from '@salesforce/resourceUrl/AudioVisualization';
 
 export default class DynamicCreatorWithDropdown extends LightningElement {
-    // Object selection
-    @track objectOptions = [];
+    // Form selection
+    @track formOptions = [];
+    @track selectedForm;
     @track selectedObject;
     @track recordTypeId;
     @track recordTypeName;
@@ -47,13 +48,13 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @wire(getAllCreateableObjects)
     wiredObjects({ data, error }) {
         if (data) {
-            this.objectOptions = data.map(o => ({
+            this.formOptions = data.map(o => ({
                 label: o.label,
                 value: o.value
             }));
         } else if (error) {
-            console.error('Error loading objects', error);
-            this.showToast('Error', 'Failed to load objects: ' + this.getErrorMessage(error), 'error');
+            console.error('Error loading forms', error);
+            this.showToast('Error', 'Failed to load form configurations: ' + this.getErrorMessage(error), 'error');
         }
     }
 
@@ -68,13 +69,13 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         }
     }
 
-    // ========== OBJECT SELECTION ==========
+    // ========== FORM SELECTION ==========
 
-    handleObjectChange(event) {
-        this.selectedObject = event.detail.value;
+    handleFormChange(event) {
+        this.selectedForm = event.detail.value;
         this.resetFormState();
         
-        if (this.selectedObject) {
+        if (this.selectedForm) {
             this.loadObjectFieldsData();
         }
     }
@@ -85,6 +86,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.fieldsArray = [];
         this.objectFieldsData = null;
         this.sectionSteps = [];
+        this.selectedObject = null;
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
@@ -98,10 +100,11 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.isLoadingFields = true;
         
         try {
-            const result = await getObjectFieldsData({ objectName: this.selectedObject });
+            const result = await getObjectFieldsData({ analysisId: this.selectedForm });
             console.log('Field data received:', result);
             
             this.objectFieldsData = result;
+            this.selectedObject = result.objectName;
             this.recordTypeId = result.recordTypeId;
             this.recordTypeName = result.recordTypeName || '';
             
@@ -122,7 +125,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             
         } catch (error) {
             console.error('Error loading field data:', error);
-            this.showToast('Error', 'Failed to load field data: ' + this.getErrorMessage(error), 'error');
+            this.showToast('Error', 'Failed to load form configuration: ' + this.getErrorMessage(error), 'error');
             this.fieldsArray = [];
         } finally {
             this.isLoadingFields = false;
@@ -142,7 +145,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
             console.log('Using custom sections from database:', this.objectFieldsData.instructions);
             this.sectionSteps = this.objectFieldsData.instructions.map((section, index) => ({
                 ...section,
-                sectionName: section.text, // Section name stored in text field
+                sectionName: section.text, // Section name from Name field
                 fieldComponents: section.fields.map((field, fieldIndex) => {
                     const isFullWidth = (section.fields.length % 2 === 1) && (fieldIndex === section.fields.length - 1);
                     return {
@@ -493,8 +496,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
 
 
     handleCancel() {
-        // Reset entire component state and go back to object selection
-        this.selectedObject = '';
+        // Reset entire component state and go back to form selection
+        this.selectedForm = '';
         this.resetFormState();
     }
 

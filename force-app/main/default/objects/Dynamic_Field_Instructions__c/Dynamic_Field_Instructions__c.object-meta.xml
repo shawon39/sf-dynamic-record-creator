@@ -55,9 +55,8 @@
     <externalSharingModel>Private</externalSharingModel>
     <label>Dynamic Field Instructions</label>
     <nameField>
-        <displayFormat>DFI-{0000}</displayFormat>
-        <label>Instruction Name</label>
-        <type>AutoNumber</type>
+        <label>Section Name</label>
+        <type>Text</type>
     </nameField>
     <pluralLabel>Dynamic Field Instructions</pluralLabel>
     <searchLayouts></searchLayouts>

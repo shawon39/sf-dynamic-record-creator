@@ -15,6 +15,7 @@ export default class ObjectSelector extends LightningElement {
     @track selectedRecordTypeName = '';
     @track selectedRecordTypeDescription = '';
     @track showRecordTypeSelector = false;
+    @track formName = '';
     
     // Loading states
     @track isLoadingObjects = false;
@@ -121,6 +122,11 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
+    // Form name change handler
+    handleFormNameChange(event) {
+        this.formName = event.target.value;
+    }
+    
     // Continue to next step
     handleContinue() {
         if (!this.selectedObject) {
@@ -133,12 +139,18 @@ export default class ObjectSelector extends LightningElement {
             return;
         }
         
+        if (!this.formName || this.formName.trim() === '') {
+            this.dispatchErrorEvent('Please enter a form name to continue');
+            return;
+        }
+        
         // Dispatch event with selected data
         const selectedEvent = new CustomEvent('objectselected', {
             detail: {
                 objectName: this.selectedObject,
                 recordTypeId: this.selectedRecordType,
-                recordTypeName: this.selectedRecordTypeName || 'Master'
+                recordTypeName: this.selectedRecordTypeName || 'Master',
+                formName: this.formName.trim()
             }
         });
         this.dispatchEvent(selectedEvent);
@@ -157,6 +169,7 @@ export default class ObjectSelector extends LightningElement {
     get canContinue() {
         if (!this.selectedObject) return false;
         if (this.showRecordTypeSelector && !this.selectedRecordType) return false;
+        if (!this.formName || this.formName.trim() === '') return false;
         return true;
     }
     

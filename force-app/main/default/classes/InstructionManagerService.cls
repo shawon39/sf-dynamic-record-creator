@@ -76,7 +76,7 @@ public with sharing class InstructionManagerService {
             // Get existing instructions
             if (Schema.sObjectType.Dynamic_Field_Instructions__c.isAccessible()) {
                 List<Dynamic_Field_Instructions__c> instructionRecords = [
-                    SELECT Id, Step_Number__c, Instruction_Text__c, Related_Fields__c
+                    SELECT Id, Step_Number__c, Name, Related_Fields__c
                     FROM Dynamic_Field_Instructions__c
                     WHERE Field_Analysis__c = :analysisId
                     AND Is_Active__c = true
@@ -102,7 +102,7 @@ public with sharing class InstructionManagerService {
                     result.instructions.add(new InstructionStep(
                         record.Id,
                         Integer.valueOf(record.Step_Number__c),
-                        record.Instruction_Text__c,
+                        record.Name,
                         stepFields
                     ));
                 }
@@ -150,7 +150,7 @@ public with sharing class InstructionManagerService {
                 Dynamic_Field_Instructions__c record = new Dynamic_Field_Instructions__c();
                 record.Field_Analysis__c = analysisId;
                 record.Step_Number__c = instruction.stepNumber;
-                record.Instruction_Text__c = instruction.text.trim();
+                record.Name = instruction.text.trim();
                 record.Is_Active__c = true;
                 
                 // Set related fields
@@ -230,7 +230,7 @@ public with sharing class InstructionManagerService {
             }
             
             List<Dynamic_Field_Instructions__c> recordsToUpdate = [
-                SELECT Id, Instruction_Text__c, Related_Fields__c
+                SELECT Id, Name, Related_Fields__c
                 FROM Dynamic_Field_Instructions__c 
                 WHERE Id = :instructionId 
                 LIMIT 1
@@ -238,7 +238,7 @@ public with sharing class InstructionManagerService {
             
             if (!recordsToUpdate.isEmpty()) {
                 Dynamic_Field_Instructions__c record = recordsToUpdate[0];
-                record.Instruction_Text__c = instructionText.trim();
+                record.Name = instructionText.trim();
                 
                 if (relatedFields != null && !relatedFields.isEmpty()) {
                     record.Related_Fields__c = String.join(relatedFields, ', ');

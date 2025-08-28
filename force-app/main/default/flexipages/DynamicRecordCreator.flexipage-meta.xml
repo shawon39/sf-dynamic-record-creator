@@ -20,7 +20,7 @@
     </flexiPageRegions>
     <masterLabel>Dynamic Record Creator</masterLabel>
     <template>
-        <name>flexipage:appHomeTemplateHeaderTwoColumns</name>
+        <name>flexipage:appHomeTemplateHeaderTwoColumnsLeftSidebar</name>
     </template>
     <type>AppPage</type>
 </FlexiPage>

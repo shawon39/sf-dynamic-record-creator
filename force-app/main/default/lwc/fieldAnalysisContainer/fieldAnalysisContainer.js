@@ -26,6 +26,7 @@ export default class FieldAnalysisContainer extends LightningElement {
         this.analysisData.selectedObject = event.detail.objectName;
         this.analysisData.selectedRecordType = event.detail.recordTypeId;
         this.analysisData.selectedRecordTypeName = event.detail.recordTypeName;
+        this.analysisData.formName = event.detail.formName;
         this.currentStep = 'step2'; // Go directly to Create Sections
     }
     

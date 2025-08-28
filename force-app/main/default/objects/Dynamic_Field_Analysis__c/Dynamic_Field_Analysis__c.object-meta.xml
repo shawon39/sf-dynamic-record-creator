@@ -55,9 +55,8 @@
     <externalSharingModel>Private</externalSharingModel>
     <label>Dynamic Field Analysis</label>
     <nameField>
-        <displayFormat>DFA-{0000}</displayFormat>
-        <label>Analysis Name</label>
-        <type>AutoNumber</type>
+        <label>Form Name</label>
+        <type>Text</type>
     </nameField>
     <pluralLabel>Dynamic Field Analyses</pluralLabel>
     <searchLayouts></searchLayouts>

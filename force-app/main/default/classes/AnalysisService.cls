@@ -2,7 +2,7 @@ public with sharing class AnalysisService {
     
     @AuraEnabled
     public static String createCompleteAnalysisWithJSON(String objectName, String recordTypeName, String recordTypeId,
-                                              List<String> selectedFields, List<InstructionData> sections) {
+                                              List<String> selectedFields, List<InstructionData> sections, String formName) {
         Savepoint sp = Database.setSavepoint();
         
         try {
@@ -33,6 +33,7 @@ public with sharing class AnalysisService {
             
             // Create parent record with JSON analysis details
             Dynamic_Field_Analysis__c analysisRecord = new Dynamic_Field_Analysis__c();
+            analysisRecord.Name = String.isNotBlank(formName) ? formName.trim() : objectName + ' Form - ' + DateTime.now().format('yyyy-MM-dd HH:mm');
             analysisRecord.Object_Name__c = objectName;
             analysisRecord.Record_Type_Name__c = recordTypeName;
             analysisRecord.Record_Type_Id__c = recordTypeId;
@@ -72,9 +73,9 @@ public with sharing class AnalysisService {
     @AuraEnabled
     public static String createCompleteAnalysis(String objectName, String recordTypeName, String recordTypeId,
                                               List<String> selectedFields, String analysisDetails,
-                                              List<InstructionData> instructions) {
+                                              List<InstructionData> instructions, String formName) {
         // Legacy method - now internally uses JSON method for consistency
-        return createCompleteAnalysisWithJSON(objectName, recordTypeName, recordTypeId, selectedFields, instructions);
+        return createCompleteAnalysisWithJSON(objectName, recordTypeName, recordTypeId, selectedFields, instructions, formName);
     }
     
     @AuraEnabled(cacheable=true)
@@ -140,7 +141,7 @@ public with sharing class AnalysisService {
         Dynamic_Field_Instructions__c instructionRecord = new Dynamic_Field_Instructions__c();
         instructionRecord.Field_Analysis__c = analysisId;
         instructionRecord.Step_Number__c = section.stepNumber;
-        instructionRecord.Instruction_Text__c = section.text.trim(); // Section Name
+        instructionRecord.Name = section.text.trim(); // Section Name
         instructionRecord.Is_Active__c = true;
         
         // Set related fields for this section

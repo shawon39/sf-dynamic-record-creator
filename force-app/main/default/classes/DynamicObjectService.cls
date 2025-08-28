@@ -48,63 +48,65 @@ public with sharing class DynamicObjectService {
     @AuraEnabled(cacheable=true)
     public static List<ObjectOption> getAllCreateableObjects() {
         List<ObjectOption> opts = new List<ObjectOption>();
-        Set<String> uniqueObjects = new Set<String>();
         
         try {
-            Console.log('getAllCreateableObjects: Querying Dynamic_Field_Analysis__c records');
+            Console.log('getAllCreateableObjects: Querying form configurations from Dynamic_Field_Analysis__c records');
             
             // Check if user has access to Dynamic_Field_Analysis__c
             if (!Schema.sObjectType.Dynamic_Field_Analysis__c.isAccessible()) {
                 throw new AuraHandledException('No access to Dynamic Field Analysis records');
             }
             
-            // Query all unique objects from Dynamic_Field_Analysis__c
+            // Query all form configurations from Dynamic_Field_Analysis__c
             List<Dynamic_Field_Analysis__c> analysisRecords = [
-                SELECT Object_Name__c 
+                SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Analysis_Date__c
                 FROM Dynamic_Field_Analysis__c 
-                WHERE Object_Name__c != null 
-                ORDER BY Object_Name__c
+                WHERE Name != null AND Object_Name__c != null
+                ORDER BY Analysis_Date__c DESC
             ];
             
-            Console.log('getAllCreateableObjects: Found ' + analysisRecords.size() + ' analysis records');
+            Console.log('getAllCreateableObjects: Found ' + analysisRecords.size() + ' form configurations');
             
             Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
             
             for (Dynamic_Field_Analysis__c record : analysisRecords) {
                 String objectName = record.Object_Name__c;
                 
-                if (!uniqueObjects.contains(objectName)) {
-                    // Check if object still exists and is createable
-                    Schema.SObjectType objectType = globalDescribe.get(objectName);
-                    if (objectType != null) {
-                        Schema.DescribeSObjectResult dr = objectType.getDescribe();
-                        if (dr.isCreateable() && dr.isAccessible()) {
-                            opts.add(new ObjectOption(dr.getLabel(), dr.getName()));
-                            uniqueObjects.add(objectName);
-                            Console.log('getAllCreateableObjects: Added object: ' + objectName);
+                // Check if object still exists and is createable
+                Schema.SObjectType objectType = globalDescribe.get(objectName);
+                if (objectType != null) {
+                    Schema.DescribeSObjectResult dr = objectType.getDescribe();
+                    if (dr.isCreateable() && dr.isAccessible()) {
+                        String displayLabel = record.Name + ' (' + dr.getLabel();
+                        if (String.isNotBlank(record.Record_Type_Name__c) && !record.Record_Type_Name__c.equals('Master')) {
+                            displayLabel += ' - ' + record.Record_Type_Name__c;
                         }
+                        displayLabel += ')';
+                        
+                        opts.add(new ObjectOption(displayLabel, record.Id));
+                        Console.log('getAllCreateableObjects: Added form configuration: ' + record.Name + ' for object: ' + objectName);
                     }
                 }
             }
             
-            Console.log('getAllCreateableObjects: Returning ' + opts.size() + ' unique objects');
+            Console.log('getAllCreateableObjects: Returning ' + opts.size() + ' form configurations');
             
         } catch (Exception e) {
             Console.log('Error in getAllCreateableObjects: ' + e.getMessage());
             Console.log('Error stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Failed to retrieve objects: ' + e.getMessage());
+            throw new AuraHandledException('Failed to retrieve form configurations: ' + e.getMessage());
         }
         
         return opts;
     }
 
     @AuraEnabled(cacheable=true)
-    public static ObjectFieldsData getObjectFieldsData(String objectName) {
+    public static ObjectFieldsData getObjectFieldsData(String analysisId) {
         try {
-            Console.log('getObjectFieldsData: Getting fields for object: ' + objectName);
+            Console.log('getObjectFieldsData: Getting fields for analysis ID: ' + analysisId);
             
-            if (String.isBlank(objectName)) {
-                throw new IllegalArgumentException('Object name cannot be blank');
+            if (String.isBlank(analysisId)) {
+                throw new IllegalArgumentException('Analysis ID cannot be blank');
             }
             
             // Check if user has access to Dynamic_Field_Analysis__c
@@ -112,26 +114,25 @@ public with sharing class DynamicObjectService {
                 throw new AuraHandledException('No access to Dynamic Field Analysis records');
             }
             
-            // Get the most recent analysis record for this object with its related instructions
+            // Get the specific analysis record with its related instructions
             List<Dynamic_Field_Analysis__c> analysisRecords = [
                 SELECT Id, Object_Name__c, Record_Type_Id__c, Record_Type_Name__c, 
                        Selected_Fields__c, Total_Fields_Count__c,
-                       (SELECT Id, Step_Number__c, Instruction_Text__c, Related_Fields__c, Is_Active__c
+                       (SELECT Id, Step_Number__c, Name, Related_Fields__c, Is_Active__c
                         FROM Dynamic_Field_Instructions__r 
                         WHERE Is_Active__c = true 
                         ORDER BY Step_Number__c ASC)
                 FROM Dynamic_Field_Analysis__c 
-                WHERE Object_Name__c = :objectName 
-                ORDER BY Analysis_Date__c DESC 
+                WHERE Id = :analysisId 
                 LIMIT 1
             ];
             
             if (analysisRecords.isEmpty()) {
-                throw new AuraHandledException('No field analysis found for object: ' + objectName);
+                throw new AuraHandledException('No field analysis found for analysis ID: ' + analysisId);
             }
             
             Dynamic_Field_Analysis__c analysisRecord = analysisRecords[0];
-            Console.log('getObjectFieldsData: Found analysis record ID: ' + analysisRecord.Id + ' for object: ' + objectName);
+            Console.log('getObjectFieldsData: Found analysis record for object: ' + analysisRecord.Object_Name__c);
             Console.log('getObjectFieldsData: Found ' + analysisRecord.Dynamic_Field_Instructions__r.size() + ' related instructions');
             
             // Parse selected fields from comma-separated string
@@ -166,11 +167,11 @@ public with sharing class DynamicObjectService {
                 
                 instructions.add(new InstructionStep(
                     instructionRecord.Step_Number__c != null ? instructionRecord.Step_Number__c.intValue() : 0,
-                    instructionRecord.Instruction_Text__c != null ? instructionRecord.Instruction_Text__c : '',
+                    instructionRecord.Name != null ? instructionRecord.Name : '',
                     stepFields
                 ));
                 
-                Console.log('getObjectFieldsData: Added instruction step ' + instructionRecord.Step_Number__c + ': ' + instructionRecord.Instruction_Text__c);
+                Console.log('getObjectFieldsData: Added instruction step ' + instructionRecord.Step_Number__c + ': ' + instructionRecord.Name);
             }
             
             result.setInstructions(instructions);
@@ -181,7 +182,7 @@ public with sharing class DynamicObjectService {
         } catch (Exception e) {
             Console.log('Error in getObjectFieldsData: ' + e.getMessage());
             Console.log('Error stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Failed to retrieve fields for ' + objectName + ': ' + e.getMessage());
+            throw new AuraHandledException('Failed to retrieve fields for analysis ID ' + analysisId + ': ' + e.getMessage());
         }
     }
 

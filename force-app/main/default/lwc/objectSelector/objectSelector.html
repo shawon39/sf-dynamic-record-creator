@@ -34,6 +34,18 @@
                 </template>
             </div>
             
+            <!-- Form Name Input -->
+            <div class="slds-var-m-top_medium">
+                <lightning-input
+                    name="formName"
+                    label="Form Name"
+                    placeholder="Enter a name for this form configuration..."
+                    value={formName}
+                    onchange={handleFormNameChange}
+                    required>
+                </lightning-input>
+            </div>
+            
             <!-- Selected Object Info -->
             <template if:true={selectedObject}>
                 <div class="slds-var-m-top_medium">
