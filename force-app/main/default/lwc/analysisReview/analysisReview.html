@@ -35,24 +35,11 @@
                 </div>
             </div>
             
-            <!-- 3. Analysis Reports -->
-            <template if:true={analysisReport}>
-                <div class="slds-box slds-var-m-bottom_large">
-                    <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
-                        <lightning-icon icon-name="standard:report" size="small" class="slds-var-m-right_small"></lightning-icon>
-                        Analysis Report
-                    </h2>
-                    <div class="slds-box slds-theme_shade">
-                        <pre class="slds-text-body_regular slds-m-around_none">{analysisReport}</pre>
-                    </div>
-                </div>
-            </template>
-            
-            <!-- 4. Sections with Field Analysis -->
+            <!-- 3. Sections with Field Analysis -->
             <template if:true={hasSections}>
                 <div class="slds-box slds-var-m-bottom_large">
                     <h2 class="slds-text-heading_small slds-var-m-bottom_medium">
-                        <lightning-icon icon-name="standard:sections" size="small" class="slds-var-m-right_small"></lightning-icon>
+                        <lightning-icon icon-name="utility:section" size="small" class="slds-var-m-right_small"></lightning-icon>
                         Form Sections ({sectionsCount})
                     </h2>
                     

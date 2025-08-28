@@ -49,6 +49,7 @@ export default class SectionBuilder extends LightningElement {
                 sectionOrder: section.stepNumber,
                 sectionName: section.text,
                 selectedFields: section.fields || [],
+                fieldsList: (section.fields || []).join(', '),
                 isEditing: false
             }));
             
@@ -148,6 +149,7 @@ export default class SectionBuilder extends LightningElement {
             ...this.currentSection,
             sectionName: sectionName.trim(),
             selectedFields: selectedFields,
+            fieldsList: selectedFields.join(', '),
             isEditing: false
         };
         
@@ -198,7 +200,8 @@ export default class SectionBuilder extends LightningElement {
             // Renumber sections
             this.sections = this.sections.map((section, index) => ({
                 ...section,
-                sectionOrder: index + 1
+                sectionOrder: index + 1,
+                fieldsList: section.selectedFields.join(', ')
             }));
             
             this.nextSectionOrder = this.sections.length + 1;
@@ -216,7 +219,8 @@ export default class SectionBuilder extends LightningElement {
             // Renumber sections
             this.sections = sections.map((section, index) => ({
                 ...section,
-                sectionOrder: index + 1
+                sectionOrder: index + 1,
+                fieldsList: section.selectedFields.join(', ')
             }));
         }
     }
@@ -232,7 +236,8 @@ export default class SectionBuilder extends LightningElement {
             // Renumber sections
             this.sections = sections.map((section, index) => ({
                 ...section,
-                sectionOrder: index + 1
+                sectionOrder: index + 1,
+                fieldsList: section.selectedFields.join(', ')
             }));
         }
     }

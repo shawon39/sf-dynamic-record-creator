@@ -1,0 +1,178 @@
+/* Section Builder 50/50 Layout Styles */
+
+/* Main Layout Grid */
+.section-builder-layout {
+    min-height: 600px;
+}
+
+/* Left Panel - Section Creation */
+.left-panel {
+    border-right: var(--slds-c-border-width-thin, 1px) solid var(--slds-c-color-border, #e5e5e5);
+    padding-right: var(--slds-c-spacing-medium, 1rem);
+}
+
+.section-creation-panel {
+    background-color: var(--slds-c-color-background-alt, #f8f9fa);
+    border: var(--slds-c-border-width-thin, 1px) solid var(--slds-c-color-border, #e5e5e5);
+    border-radius: var(--slds-c-radius-border-large, 0.75rem);
+    min-height: 500px;
+}
+
+/* Right Panel - Created Sections Display */
+.right-panel {
+    padding-left: var(--slds-c-spacing-medium, 1rem);
+}
+
+.sections-display-panel {
+    background-color: var(--slds-c-color-background, #ffffff);
+    border: var(--slds-c-border-width-thin, 1px) solid var(--slds-c-color-border, #e5e5e5);
+    border-radius: var(--slds-c-radius-border-large, 0.75rem);
+    min-height: 500px;
+}
+
+/* Panel Titles */
+.section-panel-title {
+    font-weight: 600;
+    color: var(--slds-c-color-text-default, #181818);
+}
+
+/* Section Form in Left Panel */
+.section-form {
+    padding: var(--slds-c-spacing-small, 0.75rem);
+    background-color: var(--slds-c-color-background, #ffffff);
+    border-radius: var(--slds-c-radius-border-medium, 0.5rem);
+    border: var(--slds-c-border-width-thin, 1px) solid var(--slds-c-color-border-weak, #dddbda);
+}
+
+/* Sections List in Right Panel */
+.sections-list {
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: var(--slds-c-spacing-xx-small, 0.25rem);
+}
+
+/* Individual Section Cards */
+.section-card {
+    background-color: var(--slds-c-color-background, #ffffff);
+    border: var(--slds-c-border-width-thin, 1px) solid var(--slds-c-color-border-weak, #dddbda);
+    border-radius: var(--slds-c-radius-border-medium, 0.5rem);
+    transition: all 0.2s ease;
+}
+
+.section-card:hover {
+    border-color: var(--slds-c-color-border-brand, #0176d3);
+}
+
+/* Section Order Badge - Using SLDS utility classes in HTML instead of custom CSS */
+
+/* Section Title */
+.section-title {
+    margin-bottom: var(--slds-c-spacing-xx-small, 0.25rem);
+    color: var(--slds-c-color-text-default, #181818);
+    font-weight: 600;
+}
+
+/* Section Fields Display */
+.section-fields {
+    line-height: 1.4;
+}
+
+.fields-count {
+    font-weight: 600;
+    color: var(--slds-c-color-text-weak, #706e6b);
+    margin-right: var(--slds-c-spacing-xx-small, 0.25rem);
+}
+
+.field-tag {
+    color: var(--slds-c-color-text-default, #181818);
+    font-weight: 500;
+    margin-right: var(--slds-c-spacing-xx-small, 0.25rem);
+    margin-bottom: var(--slds-c-spacing-xx-small, 0.25rem);
+}
+
+/* Empty States - Using utility classes instead of custom positioning */
+.empty-creation-state, .empty-sections-state {
+    margin: auto;
+}
+
+.empty-state-icon {
+    --slds-c-icon-color-foreground-default: var(--slds-c-color-text-weak, #706e6b);
+    opacity: 0.7;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 768px) {
+    .section-builder-layout {
+        flex-direction: column;
+    }
+    
+    .left-panel {
+        border-right: var(--slds-c-spacing-none);
+        border-bottom: var(--slds-c-border-width-thin) solid var(--slds-c-color-border, #e5e5e5);
+        padding-right: var(--slds-c-spacing-none);
+        padding-bottom: var(--slds-c-spacing-medium, 1rem);
+        margin-bottom: var(--slds-c-spacing-medium, 1rem);
+    }
+    
+    .right-panel {
+        padding-left: 0;
+    }
+    
+    .section-creation-panel,
+    .sections-display-panel {
+        min-height: 300px;
+    }
+}
+
+/* Loading States */
+.section-creation-panel.loading,
+.sections-display-panel.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Focus States for Accessibility */
+.section-card:focus-within {
+    outline: var(--slds-c-border-width-thick) solid var(--slds-c-color-border-brand, #0176d3);
+    outline-offset: var(--slds-c-spacing-xxx-small);
+}
+
+/* Animation for New Sections */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.section-card {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Scrollbar Styling for Sections List */
+.sections-list::-webkit-scrollbar {
+    width: var(--slds-c-spacing-x-small, 0.5rem);
+}
+
+.sections-list::-webkit-scrollbar-track {
+    background: var(--slds-c-color-background-alt, #f8f9fa);
+    border-radius: var(--slds-c-radius-border-small, 0.25rem);
+}
+
+.sections-list::-webkit-scrollbar-thumb {
+    background: var(--slds-c-color-border, #e5e5e5);
+    border-radius: var(--slds-c-radius-border-small, 0.25rem);
+}
+
+.sections-list::-webkit-scrollbar-thumb:hover {
+    background: var(--slds-c-color-border-strong, #c9c7c5);
+}
+
+/* Button Group Spacing in Cards */
+.section-card lightning-button-group {
+    gap: var(--slds-c-spacing-xx-small, 0.25rem);
+}

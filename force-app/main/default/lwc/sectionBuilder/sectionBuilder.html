@@ -1,5 +1,5 @@
 <template>
-    <lightning-card title="Create Form Sections" icon-name="standard:sections">
+    <lightning-card title="Create Form Sections" icon-name="utility:section">
         <div class="slds-var-p-around_medium">
             
             <!-- Object Information -->
@@ -29,29 +29,12 @@
             </template>
             
             <template if:false={isLoadingFields}>
-                <!-- Sections Header -->
-                <div class="slds-grid slds-gutters slds-wrap slds-var-m-bottom_medium">
-                    <div class="slds-col slds-grow">
-                        <h3 class="slds-text-heading_small">
-                            Form Sections ({sectionCount})
-                        </h3>
-                    </div>
-                    <div class="slds-col slds-no-flex">
-                        <lightning-button 
-                            label="Add Section" 
-                            icon-name="utility:add"
-                            variant="brand"
-                            onclick={handleAddSection}
-                            disabled={addSectionDisabled}>
-                        </lightning-button>
-                    </div>
-                </div>
                 
                 <!-- Available Fields Info -->
                 <template if:true={hasAvailableFields}>
-                    <div class="slds-box slds-theme_info slds-var-m-bottom_medium">
-                        <div class="slds-text-body_small">
-                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-var-m-right_x-small"></lightning-icon>
+                    <div class="slds-box slds-var-m-bottom_medium" style="background-color: #f8f9fa; border: 1px solid #e5e5e5; border-radius: 0.5rem; padding: 0.75rem;">
+                        <div class="slds-text-body_small slds-text-color_default">
+                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-var-m-right_x-small" style="color: #706e6b;"></lightning-icon>
                             {unallocatedFields.length} fields available for section assignment
                         </div>
                     </div>
@@ -68,144 +51,181 @@
                     </template>
                 </template>
                 
-                <!-- Current Section Being Created/Edited -->
-                <template if:true={currentSection}>
-                    <div class="slds-box slds-box_small slds-var-m-bottom_medium">
-                        <div class="slds-grid slds-gutters slds-wrap">
-                            <div class="slds-col slds-size_1-of-1">
-                                <h4 class="slds-text-heading_small slds-var-m-bottom_medium">
-                                    <template if:true={currentSection.isEditing}>
-                                        <template if:true={currentSection.sectionName}>
-                                            Edit Section: {currentSection.sectionName}
-                                        </template>
-                                        <template if:false={currentSection.sectionName}>
-                                            New Section (Order: {currentSection.sectionOrder})
-                                        </template>
-                                    </template>
-                                </h4>
-                                
-                                <lightning-input
-                                    label="Section Name"
-                                    placeholder="e.g., Contact Information, Address Details"
-                                    value={currentSection.sectionName}
-                                    data-section-name
-                                    required>
-                                </lightning-input>
-                                
-                                <div class="slds-var-m-top_medium">
-                                    <lightning-dual-listbox
-                                        label="Select Fields for this Section"
-                                        source-label="Available Fields"
-                                        selected-label="Fields in Section"
-                                        options={unallocatedFields}
-                                        value={currentSection.selectedFields}
-                                        data-section-fields
-                                        size="6"
-                                        required>
-                                    </lightning-dual-listbox>
+                <!-- 50/50 Split Layout -->
+                <div class="slds-grid slds-gutters section-builder-layout">
+                    
+                    <!-- Left Panel: Section Creation (50% width) -->
+                    <div class="slds-col slds-size_6-of-12 left-panel">
+                        <div class="slds-box section-creation-panel">
+                            <div class="slds-grid slds-gutters slds-wrap slds-var-m-bottom_medium">
+                                <div class="slds-col slds-grow">
+                                    <h3 class="slds-text-heading_small section-panel-title slds-var-p-left_small">
+                                        Create Section
+                                    </h3>
                                 </div>
-                                
-                                <div class="slds-var-m-top_medium slds-text-align_right">
-                                    <lightning-button-group>
-                                        <lightning-button 
-                                            label="Cancel"
-                                            variant="neutral"
-                                            onclick={handleCancelSection}>
-                                        </lightning-button>
-                                        <lightning-button 
-                                            label="Save Section"
-                                            variant="brand"
-                                            onclick={handleSaveSection}>
-                                        </lightning-button>
-                                    </lightning-button-group>
+                                <div class="slds-col slds-no-flex">
+                                    <lightning-button 
+                                        label="Add Section" 
+                                        icon-name="utility:add"
+                                        variant="brand"
+                                        size="small"
+                                        onclick={handleAddSection}
+                                        disabled={addSectionDisabled}>
+                                    </lightning-button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </template>
-                
-                <!-- Existing Sections -->
-                <template if:true={hasSections}>
-                    <div class="slds-var-m-bottom_medium">
-                        <template for:each={sections} for:item="section">
-                            <div key={section.id} class="slds-box slds-var-m-bottom_small">
-                                <div class="slds-grid slds-gutters">
-                                    <div class="slds-col slds-grow">
-                                        <div class="slds-media">
-                                            <div class="slds-media__figure">
-                                                <span class="slds-badge slds-theme_success">
-                                                    Section {section.sectionOrder}
-                                                </span>
-                                            </div>
-                                            <div class="slds-media__body">
-                                                <h4 class="slds-text-heading_small">{section.sectionName}</h4>
-                                                <div class="slds-text-body_small slds-text-color_weak">
-                                                    Fields ({section.selectedFields.length}): 
-                                                    <template for:each={section.selectedFields} for:item="field" for:index="index">
-                                                        <span key={field}>
-                                                            {field}<template if:false={index}><template if:true={section.selectedFields.length}>, </template></template>
-                                                        </span>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </div>
+                            
+                            <!-- Current Section Being Created/Edited -->
+                            <template if:true={currentSection}>
+                                <div class="section-form">
+                                    <h4 class="slds-text-heading_small slds-var-m-bottom_medium">
+                                        <template if:true={currentSection.isEditing}>
+                                            <template if:true={currentSection.sectionName}>
+                                                Edit Section: {currentSection.sectionName}
+                                            </template>
+                                            <template if:false={currentSection.sectionName}>
+                                                New Section (Order: {currentSection.sectionOrder})
+                                            </template>
+                                        </template>
+                                    </h4>
+                                    
+                                    <lightning-input
+                                        label="Section Name"
+                                        placeholder="e.g., Contact Information, Address Details"
+                                        value={currentSection.sectionName}
+                                        data-section-name
+                                        required>
+                                    </lightning-input>
+                                    
+                                    <div class="slds-var-m-top_medium">
+                                        <lightning-dual-listbox
+                                            label="Select Fields for this Section"
+                                            source-label="Available Fields"
+                                            selected-label="Fields in Section"
+                                            options={unallocatedFields}
+                                            value={currentSection.selectedFields}
+                                            data-section-fields
+                                            size="6"
+                                            required>
+                                        </lightning-dual-listbox>
                                     </div>
-                                    <div class="slds-col slds-no-flex">
+                                    
+                                    <div class="slds-var-m-top_medium slds-text-align_right">
                                         <lightning-button-group>
                                             <lightning-button 
-                                                icon-name="utility:edit"
+                                                label="Cancel"
                                                 variant="neutral"
-                                                size="small"
-                                                data-id={section.id}
-                                                onclick={handleEditSection}
-                                                title="Edit Section"
-                                                disabled={currentSection}>
+                                                onclick={handleCancelSection}>
                                             </lightning-button>
                                             <lightning-button 
-                                                icon-name="utility:up"
-                                                variant="neutral"
-                                                size="small"
-                                                data-id={section.id}
-                                                onclick={handleMoveUp}
-                                                title="Move Up"
-                                                disabled={currentSection}>
-                                            </lightning-button>
-                                            <lightning-button 
-                                                icon-name="utility:down"
-                                                variant="neutral"
-                                                size="small"
-                                                data-id={section.id}
-                                                onclick={handleMoveDown}
-                                                title="Move Down"
-                                                disabled={currentSection}>
-                                            </lightning-button>
-                                            <lightning-button 
-                                                icon-name="utility:delete"
-                                                variant="destructive"
-                                                size="small"
-                                                data-id={section.id}
-                                                onclick={handleDeleteSection}
-                                                title="Delete Section"
-                                                disabled={currentSection}>
+                                                label="Save Section"
+                                                variant="brand"
+                                                onclick={handleSaveSection}>
                                             </lightning-button>
                                         </lightning-button-group>
                                     </div>
                                 </div>
-                            </div>
-                        </template>
-                    </div>
-                </template>
-                
-                <!-- Empty State -->
-                <template if:false={hasSections}>
-                    <template if:false={currentSection}>
-                        <div class="slds-text-align_center slds-var-p-vertical_large">
-                            <lightning-icon icon-name='standard:sections' alternative-text='sections' size='large' title='sections'></lightning-icon>
-                            <h3 class="slds-text-heading_medium slds-var-m-top_medium">No sections created yet</h3>
-                            <p class="slds-text-body_regular slds-var-m-top_small">Create sections to organize your form fields logically</p>
+                            </template>
+                            
+                            <!-- Empty State for Left Panel -->
+                            <template if:false={currentSection}>
+                                <div class="slds-text-align_center slds-var-p-vertical_x-large empty-creation-state slds-size_4-of-5" style="margin-top: 3rem;">
+                                    <h3 class="slds-text-heading_small slds-var-m-top_medium">Ready to create a section</h3>
+                                    <p class="slds-text-body_small slds-var-m-top_small slds-text-color_weak">Click "Add Section" to start organizing your form fields</p>
+                                </div>
+                            </template>
                         </div>
-                    </template>
-                </template>
+                    </div>
+                    
+                    <!-- Right Panel: Created Sections Display (50% width) -->
+                    <div class="slds-col slds-size_6-of-12 right-panel">
+                        <div class="slds-box sections-display-panel">
+                            <div class="slds-grid slds-gutters slds-wrap slds-var-m-bottom_medium">
+                                <div class="slds-col slds-grow">
+                                    <h3 class="slds-text-heading_small section-panel-title">
+                                        Created Sections ({sectionCount})
+                                    </h3>
+                                </div>
+                            </div>
+                            
+                            <!-- Existing Sections -->
+                            <template if:true={hasSections}>
+                                <div class="sections-list">
+                                    <template for:each={sections} for:item="section">
+                                        <div key={section.id} class="slds-box section-card slds-var-m-bottom_small">
+                                            <div class="slds-grid slds-gutters">
+                                                <div class="slds-col slds-grow">
+                                                    <div class="slds-media">
+                                                        <div class="slds-media__figure">
+                                                            <span class="slds-badge slds-theme_success slds-text-title_bold slds-grid slds-grid_align-center" style="border-radius: 50%; width: 2rem; height: 2rem; background-color: #0176d3; color: white;">
+                                                                {section.sectionOrder}
+                                                            </span>
+                                                        </div>
+                                                        <div class="slds-media__body">
+                                                            <h4 class="slds-text-heading_small section-title">{section.sectionName}</h4>
+                                                            <div class="slds-text-body_small slds-text-color_weak section-fields">
+                                                                <span class="fields-count slds-text-body_small">{section.selectedFields.length} fields:</span>
+                                                                {section.fieldsList}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="slds-col slds-no-flex">
+                                                    <lightning-button-group>
+                                                        <lightning-button 
+                                                            icon-name="utility:edit"
+                                                            variant="neutral"
+                                                            size="small"
+                                                            data-id={section.id}
+                                                            onclick={handleEditSection}
+                                                            title="Edit Section"
+                                                            disabled={currentSection}>
+                                                        </lightning-button>
+                                                        <lightning-button 
+                                                            icon-name="utility:up"
+                                                            variant="neutral"
+                                                            size="small"
+                                                            data-id={section.id}
+                                                            onclick={handleMoveUp}
+                                                            title="Move Up"
+                                                            disabled={currentSection}>
+                                                        </lightning-button>
+                                                        <lightning-button 
+                                                            icon-name="utility:down"
+                                                            variant="neutral"
+                                                            size="small"
+                                                            data-id={section.id}
+                                                            onclick={handleMoveDown}
+                                                            title="Move Down"
+                                                            disabled={currentSection}>
+                                                        </lightning-button>
+                                                        <lightning-button 
+                                                            icon-name="utility:delete"
+                                                            variant="destructive"
+                                                            size="small"
+                                                            data-id={section.id}
+                                                            onclick={handleDeleteSection}
+                                                            title="Delete Section"
+                                                            disabled={currentSection}>
+                                                        </lightning-button>
+                                                    </lightning-button-group>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            
+                            <!-- Empty State for Right Panel -->
+                            <template if:false={hasSections}>
+                                <div class="slds-text-align_center slds-var-p-vertical_x-large empty-sections-state slds-size_4-of-5" style="margin-top: 3rem;">
+                                    <h3 class="slds-text-heading_small slds-var-m-top_medium">No sections created yet</h3>
+                                    <p class="slds-text-body_small slds-var-m-top_small slds-text-color_weak">Created sections will appear here</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Navigation Buttons -->
                 <div class="slds-var-m-top_large">
