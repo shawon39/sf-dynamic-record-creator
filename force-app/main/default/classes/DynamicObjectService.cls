@@ -22,6 +22,7 @@ public with sharing class DynamicObjectService {
 
     public class ObjectFieldsData {
         @AuraEnabled public String objectName;
+        @AuraEnabled public String formName;
         @AuraEnabled public String recordTypeId;
         @AuraEnabled public String recordTypeName;
         @AuraEnabled public List<String> fields;
@@ -116,7 +117,7 @@ public with sharing class DynamicObjectService {
             
             // Get the specific analysis record with its related instructions
             List<Dynamic_Field_Analysis__c> analysisRecords = [
-                SELECT Id, Object_Name__c, Record_Type_Id__c, Record_Type_Name__c, 
+                SELECT Id, Name, Object_Name__c, Record_Type_Id__c, Record_Type_Name__c, 
                        Selected_Fields__c, Total_Fields_Count__c,
                        (SELECT Id, Step_Number__c, Name, Related_Fields__c, Is_Active__c
                         FROM Dynamic_Field_Instructions__r 
@@ -147,6 +148,7 @@ public with sharing class DynamicObjectService {
             Console.log('getObjectFieldsData: Parsed ' + fields.size() + ' fields');
             
             ObjectFieldsData result = new ObjectFieldsData(analysisRecord.Object_Name__c, fields);
+            result.formName = analysisRecord.Name;
             result.setRecordTypeInfo(analysisRecord.Record_Type_Id__c, analysisRecord.Record_Type_Name__c);
             
             // Convert related instructions to InstructionStep objects

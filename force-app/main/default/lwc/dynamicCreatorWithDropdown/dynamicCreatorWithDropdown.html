@@ -7,6 +7,19 @@
         <h2 class="slds-text-heading_medium slds-text-color_default">RocketForm</h2>
       </div>
     </div>
+    
+    <template if:true={selectedForm}>
+      <div slot="actions">
+        <lightning-button
+          label="Go Back"
+          variant="neutral"
+          icon-name="utility:back"
+          icon-position="left"
+          onclick={handleGoBack}
+          class="slds-var-m-right_large">
+        </lightning-button>
+      </div>
+    </template>
     <div class="slds-var-p-left_xx-large slds-var-p-right_xx-large slds-var-p-bottom_xx-large">
     <!-- Selected form display with 50/50 layout -->
     <div class="slds-var-p-top_x-small slds-var-p-horizontal_x-small slds-var-p-bottom_x-small">
@@ -15,7 +28,7 @@
           <!-- Left: Selected form display (50% width) -->
           <div class="slds-col slds-size_6-of-12">
             <div class="selected-object-display slds-var-p-around_x-small">
-              <span class="selected-object-inline">Selected Object: {selectedObject}</span>
+              <span class="selected-object-inline">Selected Form: {selectedFormName}</span>
             </div>
           </div>
           
@@ -39,8 +52,7 @@
           
           <!-- Left Column: Enhanced Section Navigation (30% width) -->
           <div class="slds-col slds-size_4-of-12">
-            <div class="section-list-container slds-theme_default slds-var-p-around_small custom-container">
-              
+            <div class="section-list-container slds-theme_default slds-var-p-around_small custom-container">              
               <!-- Progress Summary -->
               <div class="slds-grid slds-grid_align-spread slds-var-m-bottom_small">
                 <div class="slds-col">

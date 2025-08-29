@@ -14,9 +14,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     // URL param handling
     @track formPreselected = false;
     @track selectedForm;
+    @track selectedFormName;
     @track selectedObject;
     @track recordTypeId;
     @track recordTypeName;
+    @track sourceRecordId; // For navigation back to source record
     
      // Field and form data
     @track fieldsArray = [];
@@ -55,17 +57,21 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // Read URL params for deep-linking (c__formId or formId)
+    // Read URL params for deep-linking (c__formId or formId, c__recordId for navigation back)
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
             const state = pageRef?.state || {};
             const formId = state.c__formId || state.formId || '';
+            const recordId = state.c__recordId || state.recordId || '';
+            
+            
             if (formId) {
                 // If param-driven and changed, reload
                 if (formId !== this.selectedForm) {
                     this.formPreselected = true;
                     this.selectedForm = formId;
+                    this.sourceRecordId = recordId; // Store source record ID for navigation back
                     this.resetFormState();
                     this.loadObjectFieldsData();
                 }
@@ -74,7 +80,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 this.formPreselected = false;
             }
         } catch (e) {
-            // eslint-disable-next-line no-console
             console.error('Error reading URL params', e);
         }
     }
@@ -101,6 +106,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.objectFieldsData = null;
         this.sectionSteps = [];
         this.selectedObject = null;
+        this.selectedFormName = null;
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
@@ -119,6 +125,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             
             this.objectFieldsData = result;
             this.selectedObject = result.objectName;
+            this.selectedFormName = result.formName;
             this.recordTypeId = result.recordTypeId;
             this.recordTypeName = result.recordTypeName || '';
             
@@ -504,15 +511,44 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
 
     handleCancel() {
-        // If form was preselected via URL param, navigate back to selector tab
-        if (this.formPreselected) {
+        this.navigateBack();
+    }
+
+    handleGoBack() {
+        this.navigateBack();
+    }
+
+    navigateBack() {
+        // If we have a source record ID, navigate back to that record
+        if (this.sourceRecordId) {
             this[NavigationMixin.Navigate]({
-                type: 'standard__navItemPage',
-                attributes: { apiName: 'Form_Selector' }
+                type: 'standard__recordPage',
+                attributes: {
+                    recordId: this.sourceRecordId,
+                    actionName: 'view'
+                }
             });
             return;
         }
-        // Else reset to local selector UI
+
+        // If form was preselected via URL param, navigate back to selector tab
+        if (this.formPreselected) {
+            
+            const navigationState = {};
+            // Pass the recordId back to Form Selector if we have one
+            if (this.sourceRecordId) {
+                navigationState.c__recordId = this.sourceRecordId;
+            }
+            
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: { apiName: 'Form_Selector' },
+                state: navigationState
+            });
+            return;
+        }
+        
+        // Fallback: reset to local selector UI
         this.selectedForm = '';
         this.resetFormState();
     }

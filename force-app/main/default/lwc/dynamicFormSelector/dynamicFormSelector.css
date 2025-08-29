@@ -1,3 +1,9 @@
+/* Form selector container background */
+.form-selector-container {
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+}
+
 /* Purple icon styling hook */
 .purple-icon {
     --slds-c-icon-color-foreground-default: #8b5cf6;
