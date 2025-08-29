@@ -1,0 +1,44 @@
+public with sharing class FormSelectorController {
+
+    public class FormBadge {
+        @AuraEnabled public String id;
+        @AuraEnabled public String label;
+        @AuraEnabled public String subtitle;
+
+        public FormBadge(String id, String label, String subtitle) {
+            this.id = id;
+            this.label = label;
+            this.subtitle = subtitle;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<FormBadge> getForms() {
+        try {
+            // Build SOQL for user-mode query
+            String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c ' +
+                          'FROM Dynamic_Field_Analysis__c ' +
+                          'WHERE Name != null AND Object_Name__c != null ' +
+                          'ORDER BY Name';
+
+            // Execute in USER_MODE to honor FLS + sharing without WITH SECURITY_ENFORCED
+            List<SObject> rows = Database.query(soql);
+            List<FormBadge> out = new List<FormBadge>();
+
+            for (SObject sob : rows) {
+                Dynamic_Field_Analysis__c rec = (Dynamic_Field_Analysis__c)sob;
+                String subtitle = rec.Object_Name__c;
+                if (String.isNotBlank(rec.Record_Type_Name__c) && rec.Record_Type_Name__c != 'Master') {
+                    subtitle += ' • ' + rec.Record_Type_Name__c;
+                }
+                out.add(new FormBadge(rec.Id, rec.Name, subtitle));
+            }
+
+            return out;
+        } catch (Exception e) {
+            Console.log('Error in FormSelectorController.getForms: ' + e.getMessage());
+            Console.log('Stack: ' + e.getStackTraceString());
+            throw new AuraHandledException('Failed to load forms: ' + e.getMessage());
+        }
+    }
+}

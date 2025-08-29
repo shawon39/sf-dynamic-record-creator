@@ -1,18 +1,18 @@
 // dynamicCreatorWithDropdown.js
 import { LightningElement, track, wire } from 'lwc';
+import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 
 // Import Apex methods
-import getAllCreateableObjects from '@salesforce/apex/DynamicObjectService.getAllCreateableObjects';
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 
 // Import static resource
 import AudioVisualization from '@salesforce/resourceUrl/AudioVisualization';
 
-export default class DynamicCreatorWithDropdown extends LightningElement {
-    // Form selection
-    @track formOptions = [];
+export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
+    // URL param handling
+    @track formPreselected = false;
     @track selectedForm;
     @track selectedObject;
     @track recordTypeId;
@@ -55,19 +55,31 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         }
     }
 
-    // Load dropdown options on init
-    @wire(getAllCreateableObjects)
-    wiredObjects({ data, error }) {
-        if (data) {
-            this.formOptions = data.map(o => ({
-                label: o.label,
-                value: o.value
-            }));
-        } else if (error) {
-            console.error('Error loading forms', error);
-            this.showToast('Error', 'Failed to load form configurations: ' + this.getErrorMessage(error), 'error');
+    // Read URL params for deep-linking (c__formId or formId)
+    @wire(CurrentPageReference)
+    setCurrentPageReference(pageRef) {
+        try {
+            const state = pageRef?.state || {};
+            const formId = state.c__formId || state.formId || '';
+            if (formId) {
+                // If param-driven and changed, reload
+                if (formId !== this.selectedForm) {
+                    this.formPreselected = true;
+                    this.selectedForm = formId;
+                    this.resetFormState();
+                    this.loadObjectFieldsData();
+                }
+            } else {
+                // No param: allow on-page selector
+                this.formPreselected = false;
+            }
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Error reading URL params', e);
         }
     }
+
+    // No local selector UI; page expects a deep link
 
     // Wire adapter to fetch object metadata for record type (if needed)
     @wire(getObjectInfo, { objectApiName: '$selectedObject' })
@@ -80,16 +92,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         }
     }
 
-    // ========== FORM SELECTION ==========
-
-    handleFormChange(event) {
-        this.selectedForm = event.detail.value;
-        this.resetFormState();
-        
-        if (this.selectedForm) {
-            this.loadObjectFieldsData();
-        }
-    }
+    // ========== FORM SELECTION REMOVED ==========
 
     resetFormState() {
         this.filledFields.clear();
@@ -501,7 +504,15 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
 
 
     handleCancel() {
-        // Reset entire component state and go back to form selection
+        // If form was preselected via URL param, navigate back to selector tab
+        if (this.formPreselected) {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: { apiName: 'Form_Selector' }
+            });
+            return;
+        }
+        // Else reset to local selector UI
         this.selectedForm = '';
         this.resetFormState();
     }

@@ -1,0 +1,37 @@
+<template>
+  <div class="slds-var-p-vertical_medium">
+    <div class="slds-var-m-bottom_medium slds-var-p-left_medium slds-grid slds-grid_vertical-align-center" style="gap: 0.5rem;">
+      <lightning-icon icon-name="utility:form" size="small" class="purple-icon"></lightning-icon>
+      <h2 class="slds-text-heading_medium slds-text-color_default">RocketForm</h2>
+    </div>
+    
+    <template if:true={isLoading}>
+      <div class="slds-grid slds-grid_align-center slds-var-p-around_x-large">
+        <lightning-spinner alternative-text="Loading forms" size="small"></lightning-spinner>
+      </div>
+    </template>
+
+    <template if:false={isLoading}>
+      <template if:true={hasForms}>
+        <div class="slds-grid slds-wrap slds-var-p-horizontal_medium" style="gap: 0.75rem;">
+          <template for:each={forms} for:item="form">
+            <lightning-button key={form.id}
+                            label={form.label}
+                            class="pill-button"
+                            data-id={form.id}
+                            onclick={handleNavigate}
+                            onkeydown={handleTileKeydown}
+                            variant="neutral">
+            </lightning-button>
+          </template>
+        </div>
+      </template>
+      
+      <template if:false={hasForms}>
+        <div class="slds-text-align_center slds-var-p-around_x-large">
+          <p class="slds-text-body_small slds-text-color_weak">No forms available</p>
+        </div>
+      </template>
+    </template>
+  </div>
+</template>

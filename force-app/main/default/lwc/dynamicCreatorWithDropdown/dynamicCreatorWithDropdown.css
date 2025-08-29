@@ -1,3 +1,8 @@
+/* Purple icon styling hook */
+.purple-icon {
+    --slds-c-icon-color-foreground-default: #8b5cf6;
+}
+
 /* Progress Indicator Styles - using SLDS standard classes */
 
 /* Custom click functionality for progress steps - enhanced styles moved below */

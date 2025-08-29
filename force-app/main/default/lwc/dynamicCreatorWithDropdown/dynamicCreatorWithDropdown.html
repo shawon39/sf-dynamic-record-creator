@@ -1,23 +1,17 @@
 <!-- dynamicCreatorWithDropdown.html -->
 <template>
-  <lightning-card title={cardTitle}>
+  <lightning-card>
+    <div slot="title" class="slds-var-p-vertical_small">
+      <div class="slds-var-p-left_medium slds-grid slds-grid_vertical-align-center" style="gap: 0.5rem;">
+        <lightning-icon icon-name="utility:form" size="small" class="purple-icon"></lightning-icon>
+        <h2 class="slds-text-heading_medium slds-text-color_default">RocketForm</h2>
+      </div>
+    </div>
     <div class="slds-var-p-left_xx-large slds-var-p-right_xx-large slds-var-p-bottom_xx-large">
-    <!-- Form selection -->
-    <div class="slds-var-p-around_x-small">
-      <template if:false={selectedForm}>
-        <lightning-combobox
-          name="formList" 
-          label="Select Form Configuration"
-          placeholder="Choose Form Configuration"
-          options={formOptions}
-          value={selectedForm}
-          onchange={handleFormChange}>
-        </lightning-combobox>
-      </template>
-      
-      <!-- Selected form display with 50/50 layout -->
+    <!-- Selected form display with 50/50 layout -->
+    <div class="slds-var-p-top_x-small slds-var-p-horizontal_x-small slds-var-p-bottom_x-small">
       <template if:true={selectedForm}>
-        <div class="slds-grid slds-gutters">
+        <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
           <!-- Left: Selected form display (50% width) -->
           <div class="slds-col slds-size_6-of-12">
             <div class="selected-object-display slds-var-p-around_x-small">
@@ -28,8 +22,8 @@
           <!-- Right: Audio section (50% width) -->
           <div class="slds-col slds-size_6-of-12">
             <div class="slds-grid slds-grid_align-end">
-              <div class="slds-col slds-size_6-of-12 slds-grid slds-grid_align-center" style="min-height: 60px;">
-                <img src={audioVisualizationUrl} alt="Audio Visualization" style="max-width: 100%; max-height: 50px; object-fit: contain; margin-bottom: 2px;" />
+              <div class="slds-col slds-size_8-of-12 slds-grid slds-grid_align-center">
+                <img src={audioVisualizationUrl} alt="Audio Visualization" style="max-width: 100%; object-fit: contain;" />
               </div>
             </div>
           </div>
@@ -307,18 +301,7 @@
       </template>
     </template>
 
-    <!-- Empty state only when no form is selected -->
-    <template if:false={selectedForm}>
-      <div class="slds-var-p-around_x-small slds-text-align_center">
-        <lightning-icon icon-name="utility:database" size="large" class="slds-var-m-bottom_x-small"></lightning-icon>
-        <h3 class="slds-text-heading_medium slds-var-m-bottom_x-small">
-          Select an Object to Get Started
-        </h3>
-        <p class="slds-text-body_regular slds-text-color_weak">
-          Choose an object from the dropdown above to begin creating records with guided instructions
-        </p>
-      </div>
-    </template>
+    <!-- No local form selector UI; deep link only -->
     </div>
   </lightning-card>
 </template>

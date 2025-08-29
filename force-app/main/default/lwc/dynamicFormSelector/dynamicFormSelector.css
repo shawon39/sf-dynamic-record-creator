@@ -1,0 +1,26 @@
+/* Purple icon styling hook */
+.purple-icon {
+    --slds-c-icon-color-foreground-default: #8b5cf6;
+}
+
+/* Minimal custom styling for pill buttons */
+.pill-button {
+    --slds-c-button-radius-border: 2rem;
+    transition: all 0.15s ease;
+}
+
+.pill-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--slds-c-shadow-focus, 0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.pill-button:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .pill-button {
+        font-size: var(--slds-c-font-size-3, 0.8125rem);
+        padding: var(--slds-c-spacing-xx-small, 0.4rem) var(--slds-c-spacing-small, 0.875rem);
+    }
+}
