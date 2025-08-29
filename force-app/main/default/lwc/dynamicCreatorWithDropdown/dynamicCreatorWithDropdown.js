@@ -32,16 +32,27 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     @track createdRecordId;
 
     connectedCallback() {
-        // Add event listeners for focus events on input fields
-        this.template.addEventListener('focusin', this.handleFieldFocus.bind(this));
-        // Add event listener for clicks to detect outside clicks
-        this.template.addEventListener('click', this.handleTemplateClick.bind(this));
+        // Prepare and attach stable handler references so removeEventListener works
+        if (!this._boundFocusIn) {
+            this._boundFocusIn = this.handleFieldFocus.bind(this);
+        }
+        if (!this._boundClick) {
+            this._boundClick = this.handleTemplateClick.bind(this);
+        }
+
+        // Add event listeners for focus events on input fields and outside clicks
+        this.template.addEventListener('focusin', this._boundFocusIn);
+        this.template.addEventListener('click', this._boundClick);
     }
 
     disconnectedCallback() {
-        // Remove event listeners
-        this.template.removeEventListener('focusin', this.handleFieldFocus.bind(this));
-        this.template.removeEventListener('click', this.handleTemplateClick.bind(this));
+        // Remove event listeners using the same bound references
+        if (this._boundFocusIn) {
+            this.template.removeEventListener('focusin', this._boundFocusIn);
+        }
+        if (this._boundClick) {
+            this.template.removeEventListener('click', this._boundClick);
+        }
     }
 
     // Load dropdown options on init
@@ -383,13 +394,13 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
                     inline: 'nearest'
                 });
                 
-                // Add visual focus highlight (temporary)
+                // Add visual focus highlight (temporary) and remove after animation ends
                 targetSection.classList.add('section-focused');
-                
-                // Remove highlight after animation
-                setTimeout(() => {
+                const onAnimationEnd = () => {
                     targetSection.classList.remove('section-focused');
-                }, 2000);
+                    targetSection.removeEventListener('animationend', onAnimationEnd);
+                };
+                targetSection.addEventListener('animationend', onAnimationEnd);
             } else {
                 console.warn('Target section not found:', sectionId);
             }
@@ -431,7 +442,7 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         this.updateCompletedSteps();
         
         // Update instruction step UI states
-        this.sectionSteps = this.sectionSteps.map((instruction, index) => {
+        this.sectionSteps = this.sectionSteps.map((instruction) => {
             const completedFieldsCount = instruction.fields.filter(field => 
                 this.filledFields.has(field)
             ).length;
@@ -478,14 +489,8 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
         console.log(`${this.selectedObject} created: ${recordId}`);
         this.showToast('Success', `${this.selectedObject} record created successfully!`, 'success');
         
-        // Reset form
-        this.selectedObject = '';
-        this.filledFields.clear();
-        this.completedSteps.clear();
-        this.fieldsArray = [];
-        this.objectFieldsData = null;
-        this.sectionSteps = [];
-        this.isLoadingFields = false;
+        // Return to form selection for a clear post-success UX
+        this.handleCancel();
     }
 
     handleError(event) {
@@ -569,15 +574,10 @@ export default class DynamicCreatorWithDropdown extends LightningElement {
     }
 
     getErrorMessage(error) {
-        if (error?.body?.message) {
-            return error.body.message;
-        } else if (error?.message) {
-            return error.message;
-        } else if (typeof error === 'string') {
-            return error;
-        } else {
-            return 'An unknown error occurred';
-        }
+        if (error?.body?.message) return error.body.message;
+        if (error?.message) return error.message;
+        if (typeof error === 'string') return error;
+        return 'An unknown error occurred';
     }
 
     // Getter for AudioVisualization static resource URL

@@ -129,7 +129,6 @@
                 <lightning-record-edit-form
                   object-api-name={selectedObject}
                   record-type-id={recordTypeId}
-                  mode="create"
                   onsuccess={handleSuccess}
                   onerror={handleError}
                 >
@@ -245,7 +244,6 @@
                 <lightning-record-edit-form
                   object-api-name={selectedObject}
                   record-type-id={recordTypeId}
-                  mode="create"
                   onsuccess={handleSuccess}
                   onerror={handleError}
                 >
@@ -309,8 +307,8 @@
       </template>
     </template>
 
-    <!-- Empty state when no object is selected -->
-    <template if:false={selectedObject}>
+    <!-- Empty state only when no form is selected -->
+    <template if:false={selectedForm}>
       <div class="slds-var-p-around_x-small slds-text-align_center">
         <lightning-icon icon-name="utility:database" size="large" class="slds-var-m-bottom_x-small"></lightning-icon>
         <h3 class="slds-text-heading_medium slds-var-m-bottom_x-small">
