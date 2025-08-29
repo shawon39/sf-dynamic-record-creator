@@ -45,6 +45,9 @@ public with sharing class ObjectService {
                 }
             }
             
+            // Sort objects alphabetically by label for predictable picklist order
+            objectOptions.sort(new ObjectOptionComparator());
+            
             Console.log('ObjectService.getAllSalesforceObjects: Returning ' + objectOptions.size() + ' accessible objects');
             
         } catch (Exception e) {
@@ -163,6 +166,18 @@ public with sharing class ObjectService {
                 return 1;
             }
             return rt1.label.compareTo(rt2.label);
+        }
+    }
+
+    // Comparator to sort object options by label (case-insensitive)
+    public class ObjectOptionComparator implements Comparator<ObjectOption> {
+        public Integer compare(ObjectOption a, ObjectOption b) {
+            if (a == null && b == null) return 0;
+            if (a == null) return 1;
+            if (b == null) return -1;
+            String la = a.label != null ? a.label.toLowerCase() : '';
+            String lb = b.label != null ? b.label.toLowerCase() : '';
+            return la.compareTo(lb);
         }
     }
 }
