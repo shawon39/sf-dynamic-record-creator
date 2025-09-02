@@ -1,0 +1,27 @@
+.purple-icon {
+    --slds-c-icon-color-foreground-default: #ffffff;
+    --slds-c-icon-color-background: #8b5cf6;
+    border-radius: 2rem;
+    transform: scale(0.8);
+}
+
+.pill-button {
+    --slds-c-button-radius-border: 2rem;
+    transition: all 0.15s ease;
+}
+
+.form-badge {
+    background-color: #f5f3ff;
+    color: #5b21b6;
+    border-color: transparent;
+    word-wrap: break-word;
+    white-space: normal;
+    line-height: 1.2;
+    border-radius: 0.4rem;
+}
+
+.form-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}

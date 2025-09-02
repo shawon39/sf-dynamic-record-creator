@@ -6,7 +6,10 @@
 
 /* Purple icon styling hook */
 .purple-icon {
-    --slds-c-icon-color-foreground-default: #8b5cf6;
+    --slds-c-icon-color-foreground-default: #ffffff;
+    --slds-c-icon-color-background: #8b5cf6;
+    border-radius: 2rem;
+    transform: scale(0.8);
 }
 
 /* Minimal custom styling for pill buttons */
