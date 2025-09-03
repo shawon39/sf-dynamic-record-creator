@@ -57,32 +57,45 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         return this.dashboardForms && this.dashboardForms.length > 0;
     }
 
-    // Dashboard forms getter with duplicate form numbering
+    // Dashboard forms getter with stable numbering based on creation order
     get formList() {
-        // Count occurrences of each form type (based on formId)
-        const formTypeCounts = {};
-        const formTypeCounters = {};
+        // Group forms by type and assign stable numbers based on creation order
+        const formsByType = {};
+        const formNumbers = new Map();
         
-        // First pass: count how many forms of each type we have
+        // Group forms by type
         this.dashboardForms.forEach(form => {
-            const formType = form.id; // formId identifies the form template
-            formTypeCounts[formType] = (formTypeCounts[formType] || 0) + 1;
-            formTypeCounters[formType] = 0;
+            const formType = form.id;
+            if (!formsByType[formType]) {
+                formsByType[formType] = [];
+            }
+            formsByType[formType].push(form);
         });
         
-        // Second pass: assign numbers and create display labels
+        // Assign numbers based on creation order for each form type
+        Object.keys(formsByType).forEach(formType => {
+            const formsOfThisType = formsByType[formType];
+            
+            if (formsOfThisType.length > 1) {
+                // Sort by creation time to assign stable numbers: first created = 1, second = 2, etc.
+                const sortedByCreation = [...formsOfThisType].sort((a, b) => a.creationTime - b.creationTime);
+                
+                // Assign numbers: first form = 1, second form = 2, etc.
+                sortedByCreation.forEach((form, index) => {
+                    formNumbers.set(form.externalFormId, index + 1);
+                });
+            }
+        });
+        
+        // Return forms with correct numbering (keeping display order as-is)
         return this.dashboardForms.map(form => {
             const formType = form.id;
-            const totalOfThisType = formTypeCounts[formType];
+            const totalOfThisType = formsByType[formType].length;
             
-            // Increment counter for this form type
-            formTypeCounters[formType]++;
-            const currentCount = formTypeCounters[formType];
-            
-            // Add numbering only if there are multiple forms of this type
             let displayName = form.formName;
             if (totalOfThisType > 1) {
-                displayName = `${form.formName} (${currentCount})`;
+                const number = formNumbers.get(form.externalFormId);
+                displayName = `${form.formName} (${number})`;
             }
             
             return {
@@ -148,13 +161,14 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                         if (sessionData && sessionData.formId && sessionData.objectApiName) {
                             sessionForms.push({
                                 id: sessionData.formId,
-                                externalFormId: sessionData.externalFormId || 'default', // New field
+                                externalFormId: sessionData.externalFormId || 'default',
                                 sessionKey: key,
                                 objectName: sessionData.objectApiName,
                                 formName: sessionData.formName || 'Untitled Form',
                                 progress: sessionData.progressPercentage || 0,
                                 recordId: sessionData.recordId,
                                 lastModified: sessionData.timestamp || Date.now(),
+                                creationTime: sessionData.creationTime || sessionData.timestamp || Date.now(), // Use stored creation time
                                 fieldValues: sessionData.fieldValues || {},
                                 totalFields: sessionData.totalFields || 0
                             });
@@ -165,7 +179,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                 }
             }
             
-            // Sort by last modified (most recent first)
+            // Sort by last modified (most recent first) for display
             sessionForms.sort((a, b) => b.lastModified - a.lastModified);
             
             this.dashboardForms = sessionForms;

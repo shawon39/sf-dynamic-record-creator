@@ -675,7 +675,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 objectApiName: this.selectedObject,
                 fieldValues: this.extractFieldValues(),
                 filledFields: Array.from(this.filledFields), // Save which fields were actually filled by user
-                timestamp: Date.now(),
+                creationTime: this.getFormCreationTime(),
+                timestamp: Date.now(), // Last modified time
                 formName: this.selectedFormName,
                 totalFields: this.fieldsArray.length,
                 progressPercentage: this.progressValue // Save exact progress from main form
@@ -743,6 +744,23 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     // ========== UTILITY METHODS ==========
+
+    getFormCreationTime() {
+        if (this.isEditMode) {
+            // If editing, preserve existing creation time
+            try {
+                const existingData = sessionStorage.getItem(this.generateSessionKey());
+                if (existingData) {
+                    const parsedData = JSON.parse(existingData);
+                    return parsedData.creationTime || Date.now();
+                }
+            } catch (error) {
+                console.warn('Error getting existing creation time:', error);
+            }
+        }
+        // If new form, use current time
+        return Date.now();
+    }
 
     showToast(title, message, variant) {
         const evt = new ShowToastEvent({
