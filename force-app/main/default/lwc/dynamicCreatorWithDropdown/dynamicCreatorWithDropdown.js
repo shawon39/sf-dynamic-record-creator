@@ -32,6 +32,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     // Success modal
     @track showSuccessModal = false;
     @track createdRecordId;
+    
+    // Session storage for form persistence
+    _saveDataTimeout;
 
     connectedCallback() {
         // Prepare and attach stable handler references so removeEventListener works
@@ -48,6 +51,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     disconnectedCallback() {
+        // Save form data before unmounting
+        this._saveDataTimeout = false;
+        this.saveFormData();
+        
         // Remove event listeners using the same bound references
         if (this._boundFocusIn) {
             this.template.removeEventListener('focusin', this._boundFocusIn);
@@ -144,6 +151,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             // Process instructions for step-by-step guidance
             this.processSections();
             
+            // Load saved form data
+            this.loadFormData();
+            
         } catch (error) {
             console.error('Error loading field data:', error);
             this.showToast('Error', 'Failed to load form configuration: ' + this.getErrorMessage(error), 'error');
@@ -163,7 +173,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
         // Only show sections if we have custom sections from database
         if (this.objectFieldsData.instructions && this.objectFieldsData.instructions.length > 0) {
-            console.log('Using custom sections from database:', this.objectFieldsData.instructions);
             this.sectionSteps = this.objectFieldsData.instructions.map((section, index) => ({
                 ...section,
                 sectionName: section.text, // Section name from Name field
@@ -247,6 +256,20 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         // Update section completion status
         this.updateSectionProgress(fieldName);
+        
+        // Debounced save to session storage
+        if (this._saveDataTimeout) {
+            clearTimeout(this._saveDataTimeout);
+        }
+        this._saveDataTimeout = true;
+        
+        // Use Promise for debouncing instead of setTimeout
+        Promise.resolve().then(() => {
+            if (this._saveDataTimeout) {
+                this._saveDataTimeout = false;
+                this.saveFormData();
+            }
+        });
     }
     
     handleFieldFocus(event) {
@@ -254,7 +277,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         const inputField = event.target.closest('lightning-input-field');
         if (inputField) {
             const fieldName = inputField.fieldName || inputField.dataset.fieldName;
-            console.log('Field focused:', fieldName);
             
             if (fieldName) {
                 // Find which section this field belongs to and set it as active
@@ -279,7 +301,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
         
         // Click is outside section items and input fields, remove all active borders
-        console.log('Click outside section items and input fields, clearing active highlights');
         this.clearAllActiveHighlights();
     }
     
@@ -298,7 +319,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 isActive: false
             }));
             
-            console.log('Cleared all active section highlights');
         } catch (error) {
             console.error('Error clearing active highlights:', error);
         }
@@ -311,7 +331,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         );
         
         if (sectionWithField) {
-            console.log(`Setting active section to ${sectionWithField.sectionId} for field ${fieldName}`);
             this.setActiveSection(sectionWithField.sectionId);
             // Add visual highlight to the navigation section item
             this.highlightNavigationSection(sectionWithField.sectionId);
@@ -330,7 +349,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             // Find and highlight the target navigation section
             const targetNavSection = this.template.querySelector(`[data-section-id="${sectionId}"]`);
             if (targetNavSection) {
-                console.log('Adding active highlight to navigation section:', sectionId);
                 
                 // Add the visual highlight with CSS outline
                 targetNavSection.classList.add('progress-step-active');
@@ -366,9 +384,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     
     // Handle section navigation clicks
     handleSectionClick(event) {
-        const sectionId = event.currentTarget.dataset.sectionId;
-        console.log('Section clicked:', sectionId);
-        
+        const sectionId = event.currentTarget.dataset.sectionId;        
         this.focusOnSection(sectionId);
         this.setActiveSection(sectionId);
         this.highlightNavigationSection(sectionId);
@@ -380,7 +396,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             const sectionId = event.currentTarget.dataset.sectionId;
-            console.log('Section activated via keyboard:', sectionId);
             
             this.focusOnSection(sectionId);
             this.setActiveSection(sectionId);
@@ -395,7 +410,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const targetSection = this.template.querySelector(`[data-section-id="${sectionId}"].section-container`);
             
             if (targetSection) {
-                console.log('Scrolling to section:', sectionId);
                 
                 // Smooth scroll to the section
                 targetSection.scrollIntoView({ 
@@ -428,7 +442,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 isActive: section.sectionId === sectionId
             }));
             
-            console.log('Active section set to:', sectionId);
         } catch (error) {
             console.error('Error setting active section:', error);
         }
@@ -497,6 +510,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     handleSuccess(event) {
         const recordId = event.detail.id;
         console.log(`${this.selectedObject} created: ${recordId}`);
+        
+        // Clear session data for this form
+        this.clearFormData();
+        
         this.showToast('Success', `${this.selectedObject} record created successfully!`, 'success');
         
         // Return to form selection for a clear post-success UX
@@ -606,6 +623,104 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return this.totalFields
             ? Math.round((this.filledCount / this.totalFields) * 100)
             : 0;
+    }
+
+    // ========== SESSION STORAGE METHODS ==========
+    
+    generateSessionKey() {
+        const recordId = this.sourceRecordId || 'new';
+        return `${recordId}-${this.selectedForm}-${this.selectedObject}`;
+    }
+    
+    extractFieldValues() {
+        const fieldValues = {};
+        const inputFields = this.template.querySelectorAll('lightning-input-field');
+        inputFields.forEach(field => {
+            // Save all field values (including boolean false) for complete form state preservation
+            if (field.value != null) {
+                fieldValues[field.fieldName] = field.value;
+            }
+        });
+        return fieldValues;
+    }
+    
+    saveFormData() {
+        try {
+            if (!this.selectedForm || !this.selectedObject) return;
+            
+            const sessionData = {
+                recordId: this.sourceRecordId || null,
+                formId: this.selectedForm,
+                recordTypeId: this.recordTypeId,
+                objectApiName: this.selectedObject,
+                fieldValues: this.extractFieldValues(),
+                timestamp: Date.now(),
+                formName: this.selectedFormName,
+                totalFields: this.fieldsArray.length,
+                progressPercentage: this.progressValue // Save exact progress from main form
+            };
+            
+            const sessionKey = this.generateSessionKey();
+            sessionStorage.setItem(sessionKey, JSON.stringify(sessionData));
+        } catch (error) {
+            console.error('Error saving form data:', error);
+        }
+    }
+    
+    loadFormData() {
+        try {
+            if (!this.selectedForm || !this.selectedObject) return;
+            
+            const sessionKey = this.generateSessionKey();
+            const savedData = sessionStorage.getItem(sessionKey);
+            
+            if (savedData) {
+                const sessionData = JSON.parse(savedData);
+                
+                // Validate data structure
+                if (sessionData.formId === this.selectedForm && 
+                    sessionData.objectApiName === this.selectedObject) {
+                    
+                    // Wait for form to render then populate fields
+                    Promise.resolve().then(() => {
+                        this.populateFieldsFromStorage(sessionData.fieldValues);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading form data:', error);
+        }
+    }
+    
+    populateFieldsFromStorage(fieldValues) {
+        const inputFields = this.template.querySelectorAll('lightning-input-field');
+        inputFields.forEach(field => {
+            // Check if field exists in saved values (using in operator to handle boolean false)
+            if (field.fieldName in fieldValues) {
+                const value = fieldValues[field.fieldName];
+                field.value = value;
+                // Only add to filled fields if it meets the same criteria as handleFieldChange
+                // This ensures progress calculation is consistent
+                if (value != null && value !== '') {
+                    this.filledFields.add(field.fieldName);
+                }
+            }
+        });
+        
+        // Update UI state
+        this.filledFields = new Set(this.filledFields);
+        this.updateStepProgress();
+    }
+    
+    clearFormData() {
+        try {
+            if (!this.selectedForm || !this.selectedObject) return;
+            
+            const sessionKey = this.generateSessionKey();
+            sessionStorage.removeItem(sessionKey);
+        } catch (error) {
+            console.error('Error clearing form data:', error);
+        }
     }
 
     // ========== UTILITY METHODS ==========

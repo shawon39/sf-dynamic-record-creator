@@ -7,12 +7,18 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     @track forms = [];
     @track isLoading = true;
     @track sourceRecordId; // Record ID to pass for navigation back
+    
+    // Dashboard forms data - now dynamic from session storage
+    @track dashboardForms = [];
 
     connectedCallback() {
         // Set initial sourceRecordId if recordId is available
         if (this.recordId) {
             this.sourceRecordId = this.recordId;
         }
+        
+        // Load dashboard forms from session storage
+        this.loadDashboardForms();
     }
 
     // Read URL params to capture source record ID, but prioritize @api recordId
@@ -24,6 +30,9 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             
             // Prioritize @api recordId (from record page), then URL params
             this.sourceRecordId = this.recordId || state.c__recordId || state.recordId || attributes.recordId || '';
+            
+            // Refresh dashboard when returning from form editor
+            this.loadDashboardForms();
         } catch (e) {
             console.error('Error reading URL params', e);
         }
@@ -42,6 +51,23 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
 
     get hasForms() {
         return this.forms && this.forms.length > 0;
+    }
+
+    get hasDashboardForms() {
+        return this.dashboardForms && this.dashboardForms.length > 0;
+    }
+
+    // Dashboard forms getter
+    get formList() {
+        return this.dashboardForms.map(form => ({
+            ...form,
+            isCompleted: form.progress === 100,
+            progressText: form.progress === 100 ? 'Completed' : `${form.progress}% Complete`,
+            progressTextClass: form.progress === 100 
+                ? 'slds-text-body_small slds-text-color_success' 
+                : 'slds-text-body_small slds-text-color_weak',
+            label: `${form.objectName} / ${form.formName}`,
+        }));
     }
 
     handleTileKeydown(event) {
@@ -71,5 +97,88 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             },
             state: navigationState
         });
+    }
+
+    // ========== SESSION STORAGE METHODS ==========
+    
+    loadDashboardForms() {
+        try {
+            const sessionForms = [];
+            
+            // Iterate through session storage to find form data
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                
+                // Look for form session keys (format: recordId-formId-objectName)
+                if (key && key.includes('-') && key.split('-').length >= 3) {
+                    try {
+                        const sessionData = JSON.parse(sessionStorage.getItem(key));
+                        
+                        if (sessionData && sessionData.formId && sessionData.objectApiName) {
+                            sessionForms.push({
+                                id: sessionData.formId,
+                                sessionKey: key,
+                                objectName: sessionData.objectApiName,
+                                formName: sessionData.formName || 'Untitled Form',
+                                progress: sessionData.progressPercentage || 0,
+                                recordId: sessionData.recordId,
+                                lastModified: sessionData.timestamp || Date.now(),
+                                fieldValues: sessionData.fieldValues || {},
+                                totalFields: sessionData.totalFields || 0
+                            });
+                        }
+                    } catch (parseError) {
+                        console.warn('Error parsing session data:', parseError);
+                    }
+                }
+            }
+            
+            // Sort by last modified (most recent first)
+            sessionForms.sort((a, b) => b.lastModified - a.lastModified);
+            
+            this.dashboardForms = sessionForms;
+            
+        } catch (error) {
+            console.error('Error loading dashboard forms:', error);
+            this.dashboardForms = [];
+        }
+    }
+    
+    handleEditForm(event) {
+        const sessionKey = event.currentTarget.dataset.sessionKey;
+        const sessionData = this.getSessionData(sessionKey);
+        
+        if (sessionData) {
+            const navigationState = {
+                c__formId: sessionData.formId
+            };
+            
+            // Include source record ID if available
+            if (sessionData.recordId) {
+                navigationState.c__recordId = sessionData.recordId;
+            }
+            
+            this[NavigationMixin.Navigate]({
+                type: 'standard__navItemPage',
+                attributes: {
+                    apiName: 'Dynamic_Record_Creator'
+                },
+                state: navigationState
+            });
+        }
+    }
+    
+    getSessionData(sessionKey) {
+        try {
+            const data = sessionStorage.getItem(sessionKey);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Error getting session data:', error);
+            return null;
+        }
+    }
+    
+    refreshDashboard() {
+        this.loadDashboardForms();
     }
 }

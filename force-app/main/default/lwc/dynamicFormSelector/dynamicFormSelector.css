@@ -1,5 +1,5 @@
-/* Form selector container background */
-.form-selector-container {
+/* Unified container with white background */
+.unified-container {
     background-color: #ffffff;
     border-radius: 0.5rem;
 }
@@ -25,6 +25,24 @@
 
 .pill-button:active {
     transform: translateY(0);
+}
+
+/* Form badge styling for dashboard */
+.form-badge {
+    background-color: #f5f3ff;
+    color: #5b21b6;
+    border-color: transparent;
+    word-wrap: break-word;
+    white-space: normal;
+    line-height: 1.2;
+    border-radius: 0.4rem;
+}
+
+/* Form card styling for dashboard */
+.form-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 @media (max-width: 768px) {
