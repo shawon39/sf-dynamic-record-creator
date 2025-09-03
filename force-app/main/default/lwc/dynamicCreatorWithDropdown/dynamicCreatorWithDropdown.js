@@ -20,6 +20,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     @track recordTypeName;
     @track sourceRecordId; // For navigation back to source record
     
+    // External form identification
+    @track externalFormId; // Unique identifier for form instances
+    @track isEditMode = false; // Flag to distinguish new vs edit forms
+    
      // Field and form data
     @track fieldsArray = [];
     @track objectFieldsData = null;
@@ -64,21 +68,25 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // Read URL params for deep-linking (c__formId or formId, c__recordId for navigation back)
+    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back)
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
             const state = pageRef?.state || {};
             const formId = state.c__formId || state.formId || '';
             const recordId = state.c__recordId || state.recordId || '';
+            const externalFormId = state.c__externalFormId || '';
+            const mode = state.c__mode || 'new';
             
             
             if (formId) {
                 // If param-driven and changed, reload
-                if (formId !== this.selectedForm) {
+                if (formId !== this.selectedForm || externalFormId !== this.externalFormId) {
                     this.formPreselected = true;
                     this.selectedForm = formId;
                     this.sourceRecordId = recordId; // Store source record ID for navigation back
+                    this.externalFormId = externalFormId || 'default';
+                    this.isEditMode = (mode === 'edit');
                     this.resetFormState();
                     this.loadObjectFieldsData();
                 }
@@ -117,6 +125,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
+        // Note: Don't reset externalFormId and isEditMode here as they come from URL params
         this.showSuccessModal = false;
         this.createdRecordId = null;
     }
@@ -242,9 +251,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         const fieldName = event.target.fieldName;
         const value = event.target.value;
         
-        if (value != null && value !== '') {
+        // Handle different field types properly
+        if (typeof value === 'boolean') {
+            // For boolean fields, any interaction (true or false) counts as filled
+            this.filledFields.add(fieldName);
+        } else if (value != null && value !== '') {
+            // For other fields, only non-empty values count as filled
             this.filledFields.add(fieldName);
         } else {
+            // Remove from filled fields if empty/null
             this.filledFields.delete(fieldName);
         }
         
@@ -528,6 +543,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
 
     handleCancel() {
+        // Clear the session data for this form when canceling
+        this.clearFormData();
         this.navigateBack();
     }
 
@@ -629,7 +646,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     
     generateSessionKey() {
         const recordId = this.sourceRecordId || 'new';
-        return `${recordId}-${this.selectedForm}-${this.selectedObject}`;
+        const externalFormId = this.externalFormId || 'default';
+        return `${recordId}-${this.selectedForm}-${this.selectedObject}-${externalFormId}`;
     }
     
     extractFieldValues() {
@@ -651,9 +669,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const sessionData = {
                 recordId: this.sourceRecordId || null,
                 formId: this.selectedForm,
+                externalFormId: this.externalFormId, // New field for unique form instances
+                isEditMode: this.isEditMode, // Mode tracking
                 recordTypeId: this.recordTypeId,
                 objectApiName: this.selectedObject,
                 fieldValues: this.extractFieldValues(),
+                filledFields: Array.from(this.filledFields), // Save which fields were actually filled by user
                 timestamp: Date.now(),
                 formName: this.selectedFormName,
                 totalFields: this.fieldsArray.length,
@@ -683,7 +704,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     
                     // Wait for form to render then populate fields
                     Promise.resolve().then(() => {
-                        this.populateFieldsFromStorage(sessionData.fieldValues);
+                        this.populateFieldsFromStorage(sessionData);
                     });
                 }
             }
@@ -692,23 +713,21 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
-    populateFieldsFromStorage(fieldValues) {
+    populateFieldsFromStorage(sessionData) {
         const inputFields = this.template.querySelectorAll('lightning-input-field');
+        const fieldValues = sessionData.fieldValues || {};
+        const savedFilledFields = sessionData.filledFields || [];
+        
         inputFields.forEach(field => {
             // Check if field exists in saved values (using in operator to handle boolean false)
             if (field.fieldName in fieldValues) {
                 const value = fieldValues[field.fieldName];
                 field.value = value;
-                // Only add to filled fields if it meets the same criteria as handleFieldChange
-                // This ensures progress calculation is consistent
-                if (value != null && value !== '') {
-                    this.filledFields.add(field.fieldName);
-                }
             }
         });
         
-        // Update UI state
-        this.filledFields = new Set(this.filledFields);
+        // Restore the exact filled fields that were saved (don't reconstruct from values)
+        this.filledFields = new Set(savedFilledFields);
         this.updateStepProgress();
     }
     

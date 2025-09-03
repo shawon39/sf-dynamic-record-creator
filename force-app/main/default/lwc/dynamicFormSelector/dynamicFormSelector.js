@@ -57,17 +57,44 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         return this.dashboardForms && this.dashboardForms.length > 0;
     }
 
-    // Dashboard forms getter
+    // Dashboard forms getter with duplicate form numbering
     get formList() {
-        return this.dashboardForms.map(form => ({
-            ...form,
-            isCompleted: form.progress === 100,
-            progressText: form.progress === 100 ? 'Completed' : `${form.progress}% Complete`,
-            progressTextClass: form.progress === 100 
-                ? 'slds-text-body_small slds-text-color_success' 
-                : 'slds-text-body_small slds-text-color_weak',
-            label: `${form.objectName} / ${form.formName}`,
-        }));
+        // Count occurrences of each form type (based on formId)
+        const formTypeCounts = {};
+        const formTypeCounters = {};
+        
+        // First pass: count how many forms of each type we have
+        this.dashboardForms.forEach(form => {
+            const formType = form.id; // formId identifies the form template
+            formTypeCounts[formType] = (formTypeCounts[formType] || 0) + 1;
+            formTypeCounters[formType] = 0;
+        });
+        
+        // Second pass: assign numbers and create display labels
+        return this.dashboardForms.map(form => {
+            const formType = form.id;
+            const totalOfThisType = formTypeCounts[formType];
+            
+            // Increment counter for this form type
+            formTypeCounters[formType]++;
+            const currentCount = formTypeCounters[formType];
+            
+            // Add numbering only if there are multiple forms of this type
+            let displayName = form.formName;
+            if (totalOfThisType > 1) {
+                displayName = `${form.formName} (${currentCount})`;
+            }
+            
+            return {
+                ...form,
+                isCompleted: form.progress === 100,
+                progressText: form.progress === 100 ? 'Completed' : `${form.progress}% Complete`,
+                progressTextClass: form.progress === 100 
+                    ? 'slds-text-body_small slds-text-color_success' 
+                    : 'slds-text-body_small slds-text-color_weak',
+                label: `${form.objectName} / ${displayName}`,
+            };
+        });
     }
 
     handleTileKeydown(event) {
@@ -81,8 +108,12 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         const formId = event.currentTarget?.dataset?.id;
         if (!formId) return;
         
+        const externalFormId = this.generateUniqueFormId(); // Generate new UUID for new form
+        
         const navigationState = {
-            c__formId: formId
+            c__formId: formId,
+            c__externalFormId: externalFormId, // New parameter for unique form instances
+            c__mode: 'new' // Explicit mode flag for new forms
         };
         
         // Include source record ID if available for navigation back
@@ -109,14 +140,15 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             for (let i = 0; i < sessionStorage.length; i++) {
                 const key = sessionStorage.key(i);
                 
-                // Look for form session keys (format: recordId-formId-objectName)
-                if (key && key.includes('-') && key.split('-').length >= 3) {
+                // Look for form session keys (format: recordId-formId-objectName-externalFormId)
+                if (key && key.includes('-') && key.split('-').length >= 4) {
                     try {
                         const sessionData = JSON.parse(sessionStorage.getItem(key));
                         
                         if (sessionData && sessionData.formId && sessionData.objectApiName) {
                             sessionForms.push({
                                 id: sessionData.formId,
+                                externalFormId: sessionData.externalFormId || 'default', // New field
                                 sessionKey: key,
                                 objectName: sessionData.objectApiName,
                                 formName: sessionData.formName || 'Untitled Form',
@@ -150,7 +182,9 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         
         if (sessionData) {
             const navigationState = {
-                c__formId: sessionData.formId
+                c__formId: sessionData.formId,
+                c__externalFormId: sessionData.externalFormId || 'default', // Use existing external form ID
+                c__mode: 'edit' // Explicit mode flag for editing forms
             };
             
             // Include source record ID if available
@@ -180,5 +214,9 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     
     refreshDashboard() {
         this.loadDashboardForms();
+    }
+
+    generateUniqueFormId() {
+        return 'form_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 }
