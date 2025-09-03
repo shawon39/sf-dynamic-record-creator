@@ -23,10 +23,23 @@ export default class FieldAnalysisContainer extends LightningElement {
     
     // Event handlers for step navigation
     handleObjectSelected(event) {
+        // Preserve existing sections and other data when navigating from step 1 to step 2
+        const existingSections = this.analysisData.sections;
+        const existingAllSelectedFields = this.analysisData.allSelectedFields;
+        
         this.analysisData.selectedObject = event.detail.objectName;
         this.analysisData.selectedRecordType = event.detail.recordTypeId;
         this.analysisData.selectedRecordTypeName = event.detail.recordTypeName;
         this.analysisData.formName = event.detail.formName;
+        
+        // Restore preserved sections data if it exists
+        if (existingSections) {
+            this.analysisData.sections = existingSections;
+        }
+        if (existingAllSelectedFields) {
+            this.analysisData.allSelectedFields = existingAllSelectedFields;
+        }
+        
         this.currentStep = 'step2'; // Go directly to Create Sections
     }
     
@@ -34,6 +47,12 @@ export default class FieldAnalysisContainer extends LightningElement {
         this.analysisData.sections = event.detail.sections;
         this.analysisData.allSelectedFields = event.detail.allSelectedFields;
         this.currentStep = 'step3'; // Go to Review & Save (triggers auto field analysis)
+    }
+    
+    handleSectionsSync(event) {
+        // Sync sections data without navigation (used when going back from step 2)
+        this.analysisData.sections = event.detail.sections;
+        this.analysisData.allSelectedFields = event.detail.allSelectedFields;
     }
     
     handleAnalysisSaved(event) {
@@ -49,6 +68,8 @@ export default class FieldAnalysisContainer extends LightningElement {
                 break;
             case 'step3':
                 this.currentStep = 'step2';
+                break;
+            default:
                 break;
         }
     }

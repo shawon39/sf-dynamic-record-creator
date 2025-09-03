@@ -272,6 +272,32 @@ export default class SectionBuilder extends LightningElement {
     }
     
     handleGoBack() {
+        // Sync current sections to parent before going back (if any exist)
+        if (this.sections.length > 0) {
+            // Get all selected fields across all sections
+            const allSelectedFields = [];
+            this.sections.forEach(section => {
+                allSelectedFields.push(...section.selectedFields);
+            });
+            
+            // Prepare section data for backend (reuse instruction format)
+            const sectionsForBackend = this.sections.map(section => ({
+                stepNumber: section.sectionOrder,
+                text: section.sectionName,
+                fields: section.selectedFields
+            }));
+            
+            // Dispatch sections sync event (without navigation)
+            const syncEvent = new CustomEvent('sectionssync', {
+                detail: {
+                    sections: sectionsForBackend,
+                    allSelectedFields: allSelectedFields
+                }
+            });
+            this.dispatchEvent(syncEvent);
+        }
+        
+        // Then dispatch back event
         const backEvent = new CustomEvent('goback');
         this.dispatchEvent(backEvent);
     }
