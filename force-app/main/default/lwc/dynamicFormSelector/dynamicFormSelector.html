@@ -16,6 +16,9 @@
 
       <template if:false={isLoading}>
         <template if:true={hasForms}>
+          <div class="slds-text-align_center slds-var-m-bottom_x-small">
+            <h3 class="slds-text-body_regular slds-text-color_weak">Create</h3>
+          </div>
           <div class="slds-grid slds-wrap slds-var-p-horizontal_medium" style="gap: 0.75rem;">
             <template for:each={forms} for:item="form">
               <lightning-button key={form.id}
@@ -59,11 +62,6 @@
                                 data-session-key={form.sessionKey}
                                 onclick={handleEditForm}>
                 </lightning-button>
-              </div>
-            </div>
-            <div class="slds-text-align_center slds-var-m-around_xx-small">
-              <div style="min-width: 200px;">
-                <lightning-progress-bar value={form.progress} variant="circular" size="large"></lightning-progress-bar>
               </div>
             </div>
           </div>

@@ -190,13 +190,20 @@ lightning-dual-listbox {
 .custom-progress__marker {
     --slds-c-progress-marker-shadow: none;
     --slds-c-progress-marker-color-box-shadow: transparent;
-    box-shadow: none !important;
+    box-shadow: 0 0 0 3px #ffffff !important;
+    transform: scale(0.85) !important;
 }
 
 /* Completed state marker - filled blue circle without check icon */
 .custom-progress__marker--completed {
     background-color: #0176d3 !important;
-    border: 2px solid #0176d3 !important;
+    border: none !important;
+}
+
+/* Progress summary alignment with progress bar */
+.progress-summary-aligned {
+    margin-left: calc(-1 * var(--slds-c-spacing-small, 0.75rem)) !important;
+    margin-right: calc(-1 * var(--slds-c-spacing-small, 0.75rem)) !important;
 }
 
 /* Animation container styling moved to HTML template using SLDS utility classes */
