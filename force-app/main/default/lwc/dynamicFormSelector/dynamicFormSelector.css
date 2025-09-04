@@ -21,6 +21,8 @@
 .pill-button:hover {
     transform: translateY(-1px);
     box-shadow: var(--slds-c-shadow-focus, 0 2px 4px rgba(0, 0, 0, 0.1));
+    --slds-c-button-radius-border: 2rem !important;
+    border-radius: 2rem !important;
 }
 
 .pill-button:active {
@@ -36,6 +38,12 @@
     white-space: normal;
     line-height: 1.2;
     border-radius: 0.4rem;
+    transition: all 0.2s ease;
+}
+
+.form-badge:hover {
+    background-color: #ede9fe;
+    border-radius: 0.4rem !important;
 }
 
 /* Form card styling for dashboard */
