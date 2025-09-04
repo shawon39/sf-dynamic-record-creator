@@ -3,10 +3,54 @@
   <div class="unified-container">
     <!-- Dynamic Form Selector Section -->
     <div class="slds-var-p-vertical_medium">
-      <div class="slds-var-m-bottom_medium slds-var-p-left_medium slds-grid slds-grid_vertical-align-center" style="gap: 0.5rem;">
-        <lightning-icon icon-name="action:new_notebook" size="xx-small" class="purple-icon"></lightning-icon>
-        <h2 class="slds-text-heading_medium slds-text-color_default">RocketForm</h2>
+      <div class="slds-var-m-bottom_medium slds-var-p-left_medium slds-grid slds-grid_vertical-align-center slds-grid_align-spread" style="gap: 0.5rem;">
+        <div class="slds-grid slds-grid_vertical-align-center" style="gap: 0.5rem;">
+          <lightning-icon icon-name="action:new_notebook" size="xx-small" class="purple-icon"></lightning-icon>
+          <h2 class="slds-text-heading_medium slds-text-color_default">RocketForm</h2>
+        </div>
+        <template if:true={hasDashboardForms}>
+          <div class="slds-grid slds-grid_vertical-align-center">
+            <button 
+              class={dashboardToggleButtonClass}
+              onclick={handleDashboardToggle}
+              title={dashboardToggleTitle}>
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 28L6 12H34L20 28Z" fill="#0176d3" stroke="#0176d3" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </template>
       </div>
+      
+      <!-- Form Dashboard Section (above Create) -->
+      <template if:true={hasDashboardForms}>
+        <template if:true={isDashboardVisible}>
+          <div class="slds-var-p-horizontal_medium slds-var-m-bottom_medium">
+            <template for:each={formList} for:item="form">
+              <div key={form.id} class="slds-card form-card slds-var-m-bottom_small">
+                <div class="slds-var-p-around_medium">
+                  <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small">
+                    <div class="slds-col">
+                      <span class="slds-badge form-badge slds-show_inline-block slds-size_full">{form.label}</span>
+                    </div>
+                    <div class="slds-col slds-shrink-none slds-var-m-horizontal_large">
+                      <span class={form.progressTextClass}>{form.progressText}</span>
+                    </div>
+                    <div class="slds-col slds-shrink-none">
+                      <lightning-button label="Edit" 
+                                      variant="neutral" 
+                                      class="pill-button"
+                                      data-session-key={form.sessionKey}
+                                      onclick={handleEditForm}>
+                      </lightning-button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </template>
       
       <template if:true={isLoading}>
         <div class="slds-grid slds-grid_align-center slds-var-p-around_x-large">
@@ -39,38 +83,6 @@
           </div>
         </template>
       </template>
-    </div>
-
-    <!-- Form Dashboard Section -->
-    <div class="slds-var-p-horizontal_medium slds-var-p-bottom_large">
-      <div class="slds-is-relative">
-        <template if:true={hasDashboardForms}>
-          <template for:each={formList} for:item="form">
-        <div key={form.id} class="slds-card form-card slds-var-m-bottom_small">
-          <div class="slds-var-p-around_medium">
-            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small">
-              <div class="slds-col">
-                <span class="slds-badge form-badge slds-show_inline-block slds-size_full">{form.label}</span>
-              </div>
-              <div class="slds-col slds-shrink-none slds-var-m-horizontal_large">
-                <span class={form.progressTextClass}>{form.progressText}</span>
-              </div>
-              <div class="slds-col slds-shrink-none">
-                <lightning-button label="Edit" 
-                                variant="neutral" 
-                                class="pill-button"
-                                data-session-key={form.sessionKey}
-                                onclick={handleEditForm}>
-                </lightning-button>
-              </div>
-            </div>
-          </div>
-            </div>
-          </template>
-        </template>
-        
-
-      </div>
     </div>
   </div>
 </template>

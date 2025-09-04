@@ -10,6 +10,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     
     // Dashboard forms data - now dynamic from session storage
     @track dashboardForms = [];
+    @track isDashboardVisible = true;
 
     connectedCallback() {
         // Set initial sourceRecordId if recordId is available
@@ -55,6 +56,14 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
 
     get hasDashboardForms() {
         return this.dashboardForms && this.dashboardForms.length > 0;
+    }
+
+    get dashboardToggleButtonClass() {
+        return 'dashboard-toggle-button';
+    }
+
+    get dashboardToggleTitle() {
+        return this.isDashboardVisible ? 'Collapse dashboard' : 'Expand dashboard';
     }
 
     // Dashboard forms getter with stable numbering based on creation order
@@ -232,5 +241,9 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
 
     generateUniqueFormId() {
         return 'form_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    handleDashboardToggle() {
+        this.isDashboardVisible = !this.isDashboardVisible;
     }
 }
