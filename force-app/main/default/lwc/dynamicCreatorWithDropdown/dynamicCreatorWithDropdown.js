@@ -3,6 +3,9 @@ import { LightningElement, track, wire } from 'lwc';
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
+import { loadScript } from "lightning/platformResourceLoader";
+import lottie from "@salesforce/resourceUrl/lottie";
+import voiceVisualization from "@salesforce/resourceUrl/voiceVisualization";
 
 // Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
@@ -19,6 +22,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     @track recordTypeId;
     @track recordTypeName;
     @track sourceRecordId; // For navigation back to source record
+
+    // Lottie animation
+    @track lottieLoaded = false;
+    @track animationData = null;
+    @track animationInstance = null;
+    voiceVisualizationUrl = voiceVisualization;
     
     // External form identification
     @track externalFormId; // Unique identifier for form instances
@@ -41,6 +50,14 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     _saveDataTimeout;
 
     connectedCallback() {
+        loadScript(this, lottie)
+            .then(() => {
+                this.lottieLoaded = true;
+                this.loadAnimation();
+            })
+            .catch((error) => {
+                console.error("Error loading Lottie library", error.message);
+            });
         // Prepare and attach stable handler references so removeEventListener works
         if (!this._boundFocusIn) {
             this._boundFocusIn = this.handleFieldFocus.bind(this);
@@ -52,6 +69,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         // Add event listeners for focus events on input fields and outside clicks
         this.template.addEventListener('focusin', this._boundFocusIn);
         this.template.addEventListener('click', this._boundClick);
+    }
+
+    renderedCallback() {
+        if (this.lottieLoaded && !this.animationInstance) {
+            this.loadAnimation();
+        }
     }
 
     disconnectedCallback() {
@@ -66,7 +89,61 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         if (this._boundClick) {
             this.template.removeEventListener('click', this._boundClick);
         }
+
+        if (this.animationInstance) {
+            this.animationInstance.destroy();
+            this.animationInstance = null;
+        }
     }
+
+    loadAnimation() {
+        if (!this.lottieLoaded) return;
+
+        fetch(this.voiceVisualizationUrl)
+        .then((response) => {
+            if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response?.status}`);
+            }
+            return response.json();
+        })
+        .then((animationData) => {
+            this.animationData = animationData;
+            this.renderAnimation();
+        })
+        .catch((error) => {
+            console.error("Error loading animation data", error);
+        });
+    }
+
+    renderAnimation() {
+        if (!this.animationData || !this.lottieLoaded) return;
+    
+        const animationContainer = this.template.querySelector(
+          ".animation-container"
+        );
+        if (!animationContainer) return;
+    
+        while (animationContainer.firstChild) {
+          animationContainer.removeChild(animationContainer.firstChild);
+        }
+    
+        const animationDiv = document.createElement("div");
+        animationDiv.style.width = "100%";
+        animationDiv.style.height = "100%";
+        animationContainer.appendChild(animationDiv);
+    
+        try {
+          this.animationInstance = window.lottie.loadAnimation({
+            container: animationDiv,
+            renderer: "svg",
+            loop: true,
+            autoplay: true,
+            animationData: this.animationData
+          });
+        } catch (error) {
+          console.error("Error rendering Lottie animation", error);
+        }
+      }
 
     // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back)
     @wire(CurrentPageReference)
