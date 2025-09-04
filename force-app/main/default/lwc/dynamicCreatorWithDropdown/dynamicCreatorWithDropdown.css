@@ -11,8 +11,7 @@
 /* Custom click functionality for progress steps - enhanced styles moved below */
 
 .progress-step-clickable:focus {
-    outline: 2px solid #0176d3;
-    outline-offset: 2px;
+    outline: none;
 }
 
 /* Enhanced Border Radius for All Inputs and Buttons */
@@ -82,17 +81,20 @@ lightning-dual-listbox {
     font-size: 0.875rem !important;
 }
 
-/* Progress step clickable styling with border radius - keeping line alignment intact */
+/* Progress step clickable styling - no borders */
 .progress-step-clickable {
     cursor: pointer;
-    border-radius: var(--slds-c-radius-border-small, 0.25rem) !important;
     transition: background-color 0.2s ease;
 }
 
-/* Add padding only to the content area, not the entire li element to preserve line alignment */
-.progress-step-clickable .custom-progress-content {
-    border-radius: var(--slds-c-radius-border-small, 0.25rem) !important;
+/* Hover state for section navigation items - light grey outline like section lines */
+.progress-step-clickable:hover {
+    outline: 2px solid #dddbda;
+    outline-offset: 2px;
+    border-radius: var(--slds-c-radius-border-large, 0.75rem) !important;
 }
+
+/* Content area styling - no borders for clean appearance */
 
 /* Complete status styling using #03B70F for check icons in sections */
 .green-check-icon {
@@ -107,45 +109,46 @@ lightning-dual-listbox {
     padding: 0.25rem 0.75rem !important;
 }
 
-/* Focus highlight animation for main sections */
+/* Focus highlight animation for main sections - with border radius */
 .section-focused {
     animation: sectionFocusHighlight 2s ease-in-out;
-    border: 2px solid #0176d3 !important;
     border-radius: var(--slds-c-radius-border-large, 0.75rem) !important;
     position: relative;
     z-index: 1;
 }
 
-/* Active section highlight - mimic the focus outline */
+/* Active section highlight - bold primary color without border */
 .progress-step-active {
-    outline: 2px solid #0176d3 !important;
-    outline-offset: 2px !important;
-    border-radius: var(--slds-c-radius-border-large, 0.75rem) !important;
+    font-weight: 700 !important;
+    color: #0176d3 !important;
+}
+
+/* Apply bold primary color to section title in active state, but not progress indicators */
+.progress-step-active .custom-progress-content h4 {
+    font-weight: 700 !important;
+    color: #0176d3 !important;
+}
+
+/* Override active state styling for progress indicators - keep them normal weight */
+.progress-step-active .custom-progress-content span {
+    font-weight: normal !important;
 }
 
 @keyframes sectionFocusHighlight {
-    0% { 
-        box-shadow: 0 0 0 0 rgba(1, 118, 211, 0.7);
+    0% {
+        box-shadow: 0 0 0px rgba(93, 45, 205, 0.2);
     }
-    25% { 
-        box-shadow: 0 0 0 8px rgba(1, 118, 211, 0.5);
+    50% {
+        box-shadow: 0 0 20px rgba(93, 45, 205, 0.6);
     }
-    50% { 
-        box-shadow: 0 0 0 12px rgba(1, 118, 211, 0.3);
-    }
-    75% { 
-        box-shadow: 0 0 0 8px rgba(1, 118, 211, 0.2);
-    }
-    100% { 
-        box-shadow: 0 0 0 0 rgba(1, 118, 211, 0);
+    100% {
+        box-shadow: 0 0 0px rgba(93, 45, 205, 0.2);
     }
 }
 
-/* Smooth scrolling behavior */
+/* Smooth scrolling behavior - no borders */
 .section-container {
     scroll-margin-top: 150px;
-    transition: border-color 0.2s ease;
-    border-radius: var(--slds-c-radius-border-medium, 0.5rem);
 }
 
 /* Section list container styling without border - make it sticky */
@@ -195,6 +198,12 @@ lightning-dual-listbox {
     --slds-c-progress-marker-shadow: none;
     --slds-c-progress-marker-color-box-shadow: transparent;
     box-shadow: none !important;
+}
+
+/* Completed state marker - filled blue circle without check icon */
+.custom-progress__marker--completed {
+    background-color: #0176d3 !important;
+    border: 2px solid #0176d3 !important;
 }
 
 /* Animation container styling moved to HTML template using SLDS utility classes */

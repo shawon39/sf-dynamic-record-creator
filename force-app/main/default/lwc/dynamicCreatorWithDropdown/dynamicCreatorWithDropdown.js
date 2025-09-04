@@ -856,6 +856,14 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return 'An unknown error occurred';
     }
 
+    // Getter for combined Object Name / Form Name display
+    get selectedFormDisplayName() {
+        if (this.selectedObject && this.selectedFormName) {
+            return `${this.selectedObject} / ${this.selectedFormName}`;
+        }
+        return this.selectedFormName || '';
+    }
+
     // Getter for AudioVisualization static resource URL
     get audioVisualizationUrl() {
         return AudioVisualization;

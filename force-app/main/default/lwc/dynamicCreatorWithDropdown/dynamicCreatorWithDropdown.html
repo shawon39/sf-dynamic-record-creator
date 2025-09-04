@@ -27,7 +27,7 @@
           <!-- Left: Selected form display (50% width) -->
           <div class="slds-col slds-size_6-of-12">
             <div class="selected-object-display slds-var-p-around_x-small">
-              <span class="selected-object-inline">Selected Form: {selectedFormName}</span>
+              <span class="selected-object-inline">{selectedFormDisplayName}</span>
             </div>
           </div>
           
@@ -87,11 +87,10 @@
                         aria-label="Navigate to {step.text} section">
                       
                       <template if:true={step.isCompleted}>
-                        <span class="slds-icon_container slds-icon-utility-success slds-progress__marker slds-progress__marker_icon slds-theme_success custom-progress__marker" 
-                              title="Complete">
-                          <lightning-icon icon-name="utility:success" size="xx-small" variant="inverse"></lightning-icon>
+                        <div class="slds-progress__marker custom-progress__marker custom-progress__marker--completed" 
+                             title="Complete">
                           <span class="slds-assistive-text">Complete</span>
-                        </span>
+                        </div>
                       </template>
                       <template if:false={step.isCompleted}>
                         <div class="slds-progress__marker custom-progress__marker">
@@ -106,16 +105,18 @@
                           <h4 class="slds-text-body_regular">{step.text}</h4>
                         </div>
                         <div class="slds-col slds-no-flex">
-                          <template if:true={step.isCompleted}>
-                            <span class="slds-text-body_small slds-text-color_weak" style="font-weight: bold;">
-                              <lightning-icon icon-name="utility:check" size="xx-small" class="slds-var-m-right_small green-check-icon"></lightning-icon>
-                              {step.completedFields} / {step.totalFields}
-                            </span>
-                          </template>
-                          <template if:false={step.isCompleted}>
-                            <span class="slds-text-body_small slds-text-color_weak">
-                              {step.completedFields} / {step.totalFields}
-                            </span>
+                          <template if:true={step.completedFields}>
+                            <template if:true={step.isCompleted}>
+                              <span class="slds-text-body_small slds-text-color_weak">
+                                <lightning-icon icon-name="utility:check" size="xx-small" class="slds-var-m-right_small green-check-icon"></lightning-icon>
+                                {step.completedFields} / {step.totalFields}
+                              </span>
+                            </template>
+                            <template if:false={step.isCompleted}>
+                              <span class="slds-text-body_small slds-text-color_weak">
+                                {step.completedFields} / {step.totalFields}
+                              </span>
+                            </template>
                           </template>
                         </div>
                       </div>
