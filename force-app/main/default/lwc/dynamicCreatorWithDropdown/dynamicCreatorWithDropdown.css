@@ -101,13 +101,6 @@ lightning-dual-listbox {
     --slds-c-icon-color-foreground-default: #03B70F;
 }
 
-/* Complete status badge styling with more radius */
-.complete-badge {
-    background-color: #089812 !important;
-    color: #ffffff !important;
-    border-radius: 1rem !important;
-    padding: 0.25rem 0.75rem !important;
-}
 
 /* Focus highlight animation for main sections - with border radius */
 .section-focused {

@@ -155,18 +155,6 @@
                             {section.sectionName}
                           </h3>
                         </div>
-                        <div class="slds-col slds-no-flex">
-                          <template if:true={section.isComplete}>
-                            <span class="slds-badge complete-badge">
-                              Complete
-                            </span>
-                          </template>
-                          <template if:false={section.isComplete}>
-                            <span class="slds-badge">
-                              {section.progress.percentage}%
-                            </span>
-                          </template>
-                        </div>
                       </div>
                       
                       <!-- 2-Column Field Grid -->
