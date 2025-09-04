@@ -11,9 +11,8 @@
     <template if:true={selectedForm}>
       <div slot="actions">
         <lightning-button
-          label="Go Back"
+          label="Back"
           variant="neutral"
-          icon-name="utility:back"
           icon-position="left"
           onclick={handleGoBack}
           class="slds-var-m-right_large">
@@ -36,7 +35,7 @@
           <div class="slds-col slds-size_6-of-12">
             <div class="slds-grid slds-grid_align-end">
               <div class="slds-col slds-size_8-of-12 slds-grid slds-grid_align-center">
-                <div class="animation-container">
+                <div class="animation-container slds-grid slds-grid_align-center slds-media_center slds-is-relative">
                   <!-- Lottie animation will be rendered here dynamically -->
                 </div>
               </div>

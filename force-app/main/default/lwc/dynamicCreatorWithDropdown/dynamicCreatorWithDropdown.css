@@ -197,11 +197,6 @@ lightning-dual-listbox {
     box-shadow: none !important;
 }
 
-.animation-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-  }
+/* Animation container styling moved to HTML template using SLDS utility classes */
 
 
