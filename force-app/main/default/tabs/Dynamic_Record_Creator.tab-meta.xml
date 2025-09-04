@@ -2,6 +2,6 @@
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Dynamic Record Creator - Create records for any object in your org</description>
     <flexiPage>DynamicRecordCreator</flexiPage>
-    <label>Dynamic Record Creator</label>
+    <label>RocketForm</label>
     <motif>Custom48: Trophy</motif>
 </CustomTab>
