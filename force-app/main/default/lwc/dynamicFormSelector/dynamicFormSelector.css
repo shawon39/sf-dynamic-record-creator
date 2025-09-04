@@ -72,6 +72,80 @@
     transition: all 0.2s ease;
 }
 
+/* Dashboard card content - remove right padding */
+.dashboard-card-content {
+    padding-right: 1rem !important;
+}
+
+/* Right actions container - no extra margin */
+.right-actions {
+    margin: 0 !important;
+}
+
+/* Edit button - remove any right margin */
+.edit-button-no-margin {
+    margin-right: 0 !important;
+}
+
+/* Dashboard main grid - add gap between left and right */
+.dashboard-main-grid {
+    gap: 1rem;
+}
+
+/* Left section - ensure it takes available space */
+.left-section {
+    flex: 1;
+    max-width: calc(100% - 200px); /* Reserve space for right actions */
+}
+
+/* Dashboard forms container - limit to 5 forms with scrolling */
+.dashboard-forms-container {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Custom scrollbar styling */
+.dashboard-forms-container::-webkit-scrollbar {
+    width: 9px;
+}
+
+.dashboard-forms-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.dashboard-forms-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.dashboard-forms-container::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Progress text completed styling - pure green using styling hooks */
+.progress-completed-text {
+    --slds-c-text-color-foreground: #03B70F;
+    color: var(--slds-c-text-color-foreground, #03B70F) !important;
+}
+
+/* Create text - more weak color using styling hooks */
+.create-text-weak {
+    --slds-c-text-color-foreground: #706e6b;
+    color: var(--slds-c-text-color-foreground, #706e6b) !important;
+}
+
+/* Form badge - full width background */
+.form-badge-full-width {
+    display: block !important;
+    width: 100% !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+}
+
+
+
 @media (max-width: 768px) {
     .pill-button {
         font-size: var(--slds-c-font-size-3, 0.8125rem);

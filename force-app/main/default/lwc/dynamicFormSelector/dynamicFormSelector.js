@@ -112,7 +112,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                 isCompleted: form.progress === 100,
                 progressText: form.progress === 100 ? 'Completed' : `${form.progress}% Complete`,
                 progressTextClass: form.progress === 100 
-                    ? 'slds-text-body_small slds-text-color_success' 
+                    ? 'slds-text-body_small progress-completed-text' 
                     : 'slds-text-body_small slds-text-color_weak',
                 label: `${form.objectName} / ${displayName}`,
             };

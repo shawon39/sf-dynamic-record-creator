@@ -25,24 +25,24 @@
       <!-- Form Dashboard Section (above Create) -->
       <template if:true={hasDashboardForms}>
         <template if:true={isDashboardVisible}>
-          <div class="slds-var-p-horizontal_medium slds-var-m-bottom_medium">
+          <div class="slds-var-p-horizontal_medium slds-var-m-bottom_medium dashboard-forms-container">
             <template for:each={formList} for:item="form">
               <div key={form.id} class="slds-card form-card slds-var-m-bottom_small">
-                <div class="slds-var-p-around_medium">
-                  <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small">
-                    <div class="slds-col">
-                      <span class="slds-badge form-badge slds-show_inline-block slds-size_full">{form.label}</span>
+                <div class="slds-var-p-around_medium dashboard-card-content">
+                  <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_small dashboard-main-grid">
+                    <div class="slds-col slds-text-align_left left-section">
+                      <span class="slds-badge form-badge form-badge-full-width">{form.label}</span>
                     </div>
-                    <div class="slds-col slds-shrink-none slds-var-m-horizontal_large">
-                      <span class={form.progressTextClass}>{form.progressText}</span>
-                    </div>
-                    <div class="slds-col slds-shrink-none">
-                      <lightning-button label="Edit" 
-                                      variant="neutral" 
-                                      class="pill-button"
-                                      data-session-key={form.sessionKey}
-                                      onclick={handleEditForm}>
-                      </lightning-button>
+                    <div class="slds-col slds-shrink-none slds-text-align_right">
+                      <div class="slds-grid slds-grid_vertical-align-center right-actions" style="gap: 1rem;">
+                        <span class={form.progressTextClass}>{form.progressText}</span>
+                        <lightning-button label="Edit" 
+                                        variant="neutral" 
+                                        class="pill-button edit-button-no-margin"
+                                        data-session-key={form.sessionKey}
+                                        onclick={handleEditForm}>
+                        </lightning-button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -61,7 +61,7 @@
       <template if:false={isLoading}>
         <template if:true={hasForms}>
           <div class="slds-text-align_center slds-var-m-bottom_x-small">
-            <h3 class="slds-text-body_regular slds-text-color_weak">Create</h3>
+            <h3 class="slds-text-body_regular create-text-weak">Create</h3>
           </div>
           <div class="slds-grid slds-wrap slds-var-p-horizontal_medium" style="gap: 0.75rem;">
             <template for:each={forms} for:item="form">
