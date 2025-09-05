@@ -4,11 +4,13 @@ public with sharing class FormSelectorController {
         @AuraEnabled public String id;
         @AuraEnabled public String label;
         @AuraEnabled public String subtitle;
+        @AuraEnabled public String fieldAnalysisDetails;
 
-        public FormBadge(String id, String label, String subtitle) {
+        public FormBadge(String id, String label, String subtitle, String fieldAnalysisDetails) {
             this.id = id;
             this.label = label;
             this.subtitle = subtitle;
+            this.fieldAnalysisDetails = fieldAnalysisDetails;
         }
     }
 
@@ -16,7 +18,7 @@ public with sharing class FormSelectorController {
     public static List<FormBadge> getForms() {
         try {
             // Build SOQL for user-mode query
-            String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c ' +
+            String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Field_Analysis_Details__c ' +
                           'FROM Dynamic_Field_Analysis__c ' +
                           'WHERE Name != null AND Object_Name__c != null ' +
                           'ORDER BY Name';
@@ -31,7 +33,7 @@ public with sharing class FormSelectorController {
                 if (String.isNotBlank(rec.Record_Type_Name__c) && rec.Record_Type_Name__c != 'Master') {
                     subtitle += ' • ' + rec.Record_Type_Name__c;
                 }
-                out.add(new FormBadge(rec.Id, rec.Name, subtitle));
+                out.add(new FormBadge(rec.Id, rec.Name, subtitle, rec.Field_Analysis_Details__c));
             }
 
             return out;

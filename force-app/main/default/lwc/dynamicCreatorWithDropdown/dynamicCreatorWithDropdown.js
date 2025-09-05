@@ -6,6 +6,8 @@ import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import { loadScript } from "lightning/platformResourceLoader";
 import lottie from "@salesforce/resourceUrl/lottie";
 import voiceVisualization from "@salesforce/resourceUrl/voiceVisualization";
+import RPISTOLWC from "@salesforce/messageChannel/FORMMC__c";
+import { subscribe, MessageContext } from 'lightning/messageService';
 
 // Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
@@ -14,6 +16,9 @@ import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObject
 import AudioVisualization from '@salesforce/resourceUrl/AudioVisualization';
 
 export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
+    @wire(MessageContext)
+    context;
+
     // URL param handling
     @track formPreselected = false;
     @track selectedForm;
@@ -49,6 +54,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     // Session storage for form persistence
     _saveDataTimeout;
 
+    RPISTOLWCSubscription = null;
+
     connectedCallback() {
         loadScript(this, lottie)
             .then(() => {
@@ -69,6 +76,121 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         // Add event listeners for focus events on input fields and outside clicks
         this.template.addEventListener('focusin', this._boundFocusIn);
         this.template.addEventListener('click', this._boundClick);
+
+        this.subscribeRPISTOLWCMC();
+    }
+
+    subscribeRPISTOLWCMC() {
+        console.log('dynamicCreatorWithDropDown: Subscribing to RPISTOLWC!!');
+        if (this.RPISTOLWCSubscription) {
+            console.log('dynamicCreatorWithDropDown: RPISTOLWC subscription already exists');
+            return;
+        }
+        console.log('dynamicCreatorWithDropDown: Creating RPISTOLWC subscription');
+        this.RPISTOLWCSubscription = subscribe(this.context, RPISTOLWC, (message) => {
+            console.log('dynamicCreatorWithDropDown: Received RPISTOLWC message:', message);
+            if ( message?.type === 'inProgressFormData') {
+                this.handleFormDataMessage(message);
+                console.log('dynamicCreatorWithDropDown Received RPISTOLWC inProgressFormData Message:', message);
+            } else {
+                console.log('dynamicCreatorWithDropDown: Message type not inProgressFormData:', message?.type);
+            }
+        });
+        console.log('dynamicCreatorWithDropDown: RPISTOLWC subscription created successfully');
+    }
+
+    async handleFormDataMessage(message) {
+        try {
+            console.log('SHS: Paichi');
+            console.log('SHS: Received form data message:', message);
+            
+            if (!message || !message.callFormData) {
+                console.warn('No callFormData in message');
+                return;
+            }
+
+            // Step 1: Parse the top-level 'callFormData' (first JSON parse)
+            const dataObj = JSON.parse(message.callFormData);
+            console.log('Parsed data object:', dataObj);
+
+            // Step 2: Parse the 'formData' which is still a JSON string (second JSON parse)
+            if (!dataObj.formData) {
+                console.warn('No formData in parsed data object');
+                return;
+            }
+
+            const formDataObj = JSON.parse(dataObj.formData);
+            console.log('Parsed form data object:', formDataObj);
+
+            // Step 3: Extract the field details
+            if (!formDataObj.fieldsDetails) {
+                console.warn('No fieldsDetails in form data object');
+                return;
+            }
+
+            const fieldsDetails = formDataObj.fieldsDetails;
+            console.log('Fields to populate:', fieldsDetails);
+
+            // Wait for DOM to be ready then populate the fields
+            await Promise.resolve();
+            
+            this.populateFormFields(fieldsDetails);
+
+        } catch (error) {
+            console.error('Error processing form data message:', error);
+            this.showToast('Error', 'Failed to process form data: ' + error.message, 'error');
+        }
+    }
+
+    populateFormFields(fieldsDetails) {
+        console.log('SHS: Paichiv2');
+        try {
+            console.log('Populating form fields with:', fieldsDetails);
+            
+            // Get all lightning-input-field elements
+            const inputFields = this.template.querySelectorAll('lightning-input-field');
+            let fieldsPopulated = 0;
+            
+            inputFields.forEach(field => {
+                const fieldName = field.fieldName;
+                
+                // Check if this field has data in the fieldsDetails
+                if (Object.prototype.hasOwnProperty.call(fieldsDetails, fieldName)) {
+                    const fieldValue = fieldsDetails[fieldName];
+                    
+                    // Set the field value
+                    field.value = fieldValue;
+                    
+                    // Add to filled fields tracking
+                    if (fieldValue != null && fieldValue !== '') {
+                        this.filledFields.add(fieldName);
+                        fieldsPopulated++;
+                    }
+                    
+                    console.log(`Populated field ${fieldName} with value:`, fieldValue);
+                }
+            });
+            
+            // Trigger reactivity for filled fields
+            this.filledFields = new Set(this.filledFields);
+            
+            // Update step progress and section progress
+            this.updateStepProgress();
+            
+            // Update all section progress
+            this.sectionSteps.forEach(section => {
+                this.updateSectionProgress(section.fieldComponents?.[0]?.apiName);
+            });
+            
+            // Save the updated form data to session storage
+            this.saveFormData();
+            
+            console.log(`Successfully populated ${fieldsPopulated} fields`);
+            
+        } catch (error) {
+            console.error('Error populating form fields:', error);
+            this.showToast('Error', 'Failed to populate form fields: ' + error.message, 'error');
+        }
     }
 
     renderedCallback() {

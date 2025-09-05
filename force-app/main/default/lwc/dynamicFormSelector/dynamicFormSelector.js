@@ -1,8 +1,14 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 import getForms from '@salesforce/apex/FormSelectorController.getForms';
+import updateActiveForm from '@salesforce/apex/TestLWCConnection.updateActiveForm';
+import TRANSCRIPTMC from "@salesforce/messageChannel/rocketphone__TRANSCRIPTMC__c";
+import { MessageContext, subscribe } from 'lightning/messageService';
 
 export default class DynamicFormSelector extends NavigationMixin(LightningElement) {
+    @wire(MessageContext)
+    context;
+
     @api recordId; // Automatically populated when component is on a record page
     @track forms = [];
     @track isLoading = true;
@@ -12,7 +18,12 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     @track dashboardForms = [];
     @track isDashboardVisible = true;
 
+    transcriptSubscription = null;
+    @track currentCallRecordId = null;
+
     connectedCallback() {
+        this.subscribeTranscriptMC();
+
         // Set initial sourceRecordId if recordId is available
         if (this.recordId) {
             this.sourceRecordId = this.recordId;
@@ -20,6 +31,27 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         
         // Load dashboard forms from session storage
         this.loadDashboardForms();
+    }
+
+    subscribeTranscriptMC() {
+        if (this.transcriptSubscription) {
+            return;
+        }
+        this.transcriptSubscription = subscribe(this.context, TRANSCRIPTMC, (message) => {
+            this.handleTranscriptMessage(message);
+            console.log('DynamicFormSelector Received TRANSCRIPTMC Message:', message);
+        });
+    }
+
+    async handleTranscriptMessage(message) {
+        try {
+            if (message?.callRecordId && (this.currentCallRecordId == null || this.currentCallRecordId == '' || message?.callRecordId !== this.currentCallRecordId)) {
+                this.currentCallRecordId = message?.callRecordId;
+                console.log('DynamicFormSelector this.currentCallRecordId:', this.currentCallRecordId);
+            }
+        } catch (rpBotError) {
+            console.error('DynamicFormSelector Error in handleTranscriptMessage:', rpBotError);
+        }
     }
 
     // Read URL params to capture source record ID, but prioritize @api recordId
@@ -44,6 +76,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         this.isLoading = false;
         if (data) {
             this.forms = data;
+            console.log('dynamicFormSelector 1 this.forms', JSON.stringify(this.forms?.[0]));
         } else if (error) {
             console.error('Error loading forms', error);
             this.forms = [];
@@ -126,11 +159,31 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         }
     }
 
-    handleNavigate(event) {
+    async handleNavigate(event) {
         const formId = event.currentTarget?.dataset?.id;
         if (!formId) return;
+
+        console.log('dynamicFormSelectore formId:: ', formId);
         
         const externalFormId = this.generateUniqueFormId(); // Generate new UUID for new form
+
+        // Find the matching form from this.forms based on formId and get its fieldAnalysisDetails
+        const selectedForm = this.forms.find(form => form.id === formId);
+        console.log('dynamicFormSelector selectedForm:', selectedForm);
+        // fieldAnalysisDetails is already a JSON string from database, no need to stringify again
+        let formStructureJsonString = selectedForm?.fieldAnalysisDetails || '{}';
+        console.log('dynamicFormSelector Selected form fieldAnalysisDetails:', formStructureJsonString);
+
+        // Build request object properly to avoid JSON escaping issues
+        const requestObject = {
+            callRecordId: this.currentCallRecordId,
+            formStructureJson: formStructureJsonString,
+            id: externalFormId
+        };
+        let requestStringActiveForm = JSON.stringify(requestObject);
+        console.log('dynamicFormSelector requestStringActiveForm:', requestStringActiveForm);
+        let responseOfUpdateActiveForm = await updateActiveForm({ requestString: requestStringActiveForm });
+        console.log('dynamicFormSelectore responseOfUpdateActiveForm: ', responseOfUpdateActiveForm);
         
         const navigationState = {
             c__formId: formId,
