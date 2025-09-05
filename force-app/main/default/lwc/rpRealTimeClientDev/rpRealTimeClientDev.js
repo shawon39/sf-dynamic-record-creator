@@ -28,7 +28,7 @@ export default class RpRealTimeClientDev extends LightningElement {
 
     async handleTranscriptMessage(message) {
         try {
-            if (message?.callRecordId && (this.currentCallRecordId == null || this.currentCallRecordId == '' || message?.callRecordId !== this.currentCallRecordId)) {
+            if (message?.callRecordId && (this.currentCallRecordId === null || this.currentCallRecordId === '' || message?.callRecordId !== this.currentCallRecordId)) {
                 this.currentCallRecordId = message?.callRecordId;
                 console.log('rpRealTimeClientDev this.currentCallRecordId:', this.currentCallRecordId);
             }
@@ -48,7 +48,7 @@ export default class RpRealTimeClientDev extends LightningElement {
         }
     }
 
-    setupEventHandlers(connection) {
+    setupEventHandlers() {
         // Setup event handlers for WebSocket messages
         webSocketManager.on('CallStatusChanged', (data) => {
             const normalizedData = JSON.stringify(data, null, '\t');
@@ -108,7 +108,6 @@ export default class RpRealTimeClientDev extends LightningElement {
 
             if (bookmarks?.length > 0) {
                 const lastBookmark = bookmarks[bookmarks.length - 1];
-                let lastBookmarkObject = { rpCallId: callRecordId, bookmarkData: lastBookmark };
                 let bookmarkObject = { bookmarkType: 'All', bookmarkData: lastBookmark, rpCallId: callRecordId };
                 console.log("RpRealTimeClientDev handleBookmarkResponse bookmarkObject: ", bookmarkObject);
             }
@@ -117,7 +116,7 @@ export default class RpRealTimeClientDev extends LightningElement {
                 const lastElement = rawActions[rawActions.length - 1];
                 let isExist = this.capturedBookmark.find(b => b?.id === lastElement.id);
                 if (isExist) {
-                    return;
+                    // eslint-disable-next-line consistent-return
                 }
             }
         }
@@ -127,10 +126,9 @@ export default class RpRealTimeClientDev extends LightningElement {
     sendMessage(message) {
         if (webSocketManager.isConnected()) {
             return webSocketManager.send(message);
-        } else {
-            console.warn('RpRealTimeClient: Cannot send message - WebSocket not connected');
-            return false;
         }
+        console.warn('RpRealTimeClient: Cannot send message - WebSocket not connected');
+        return false;
     }
 
     // Method to check connection status

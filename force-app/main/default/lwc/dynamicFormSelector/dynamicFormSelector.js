@@ -45,7 +45,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
 
     async handleTranscriptMessage(message) {
         try {
-            if (message?.callRecordId && (this.currentCallRecordId == null || this.currentCallRecordId == '' || message?.callRecordId !== this.currentCallRecordId)) {
+            if (message?.callRecordId && (this.currentCallRecordId === null || this.currentCallRecordId === '' || message?.callRecordId !== this.currentCallRecordId)) {
                 this.currentCallRecordId = message?.callRecordId;
                 console.log('DynamicFormSelector this.currentCallRecordId:', this.currentCallRecordId);
             }
