@@ -12,8 +12,6 @@ import { subscribe, MessageContext } from 'lightning/messageService';
 // Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 
-// Import static resource
-import AudioVisualization from '@salesforce/resourceUrl/AudioVisualization';
 
 export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
@@ -986,8 +984,4 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return this.selectedFormName || '';
     }
 
-    // Getter for AudioVisualization static resource URL
-    get audioVisualizationUrl() {
-        return AudioVisualization;
-    }
 }
