@@ -345,7 +345,7 @@ public with sharing class FieldService {
                 if (section.fields != null && !section.fields.isEmpty()) {
                     for (String fieldName : section.fields) {
                         FieldAnalysisDetail fieldDetail = fieldDetailsMap.get(fieldName);
-                        if (fieldDetail != null) {
+                        if (fieldDetail != null && fieldDetail.fieldType != 'REFERENCE') {
                             Map<String, Object> fieldResult = convertFieldDetailToMap(fieldDetail);
                             fieldJsonList.add((String)fieldResult.get('_jsonString'));
                         }
@@ -359,11 +359,13 @@ public with sharing class FieldService {
             
             fieldsDetailsJson = '{ ' + String.join(sectionJsonParts, ', ') + ' }';
         } else {
-            // If no sections provided, create a default section with all fields
+            // If no sections provided, create a default section with all fields (excluding Lookup fields)
             List<String> defaultFieldJsonList = new List<String>();
             for (FieldAnalysisDetail fieldDetail : fieldDetailsMap.values()) {
-                Map<String, Object> fieldResult = convertFieldDetailToMap(fieldDetail);
-                defaultFieldJsonList.add((String)fieldResult.get('_jsonString'));
+                if (fieldDetail.fieldType != 'REFERENCE') {
+                    Map<String, Object> fieldResult = convertFieldDetailToMap(fieldDetail);
+                    defaultFieldJsonList.add((String)fieldResult.get('_jsonString'));
+                }
             }
             fieldsDetailsJson = '{ "General Information": [' + String.join(defaultFieldJsonList, ', ') + '] }';
         }
