@@ -483,8 +483,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 this.autoPopulateContactFields();
             }
             
-            // Trigger layout adjustment after data is loaded
-            Promise.resolve().then(() => this.adjustFieldLayout());
             
         } catch (error) {
             console.error('Error loading field data:', error);
@@ -621,8 +619,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         // Update section completion status
         this.updateSectionProgress(fieldName);
         
-        // Adjust field layout in case field visibility changed
-        Promise.resolve().then(() => this.adjustFieldLayout());
         
         // Debounced save to session storage
         if (this._saveDataTimeout) {
