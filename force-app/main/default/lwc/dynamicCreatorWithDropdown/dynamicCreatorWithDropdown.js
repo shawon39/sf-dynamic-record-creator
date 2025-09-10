@@ -3,14 +3,13 @@ import { LightningElement, track, wire } from 'lwc';
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
-import { loadScript } from "lightning/platformResourceLoader";
-import lottie from "@salesforce/resourceUrl/lottie";
-import voiceVisualization from "@salesforce/resourceUrl/voiceVisualization";
+import Listening from "@salesforce/resourceUrl/Listening"; // Current image
 import RPISTOLWC from "@salesforce/messageChannel/FORMMC__c";
 import { subscribe, MessageContext } from 'lightning/messageService';
 
 // Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
+import getContactAndAccountData from '@salesforce/apex/DynamicObjectService.getContactAndAccountData';
 
 
 export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
@@ -25,12 +24,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     @track recordTypeId;
     @track recordTypeName;
     @track sourceRecordId; // For navigation back to source record
+    @track contactId; // Contact ID from URL for auto-population
 
-    // Lottie animation
-    @track lottieLoaded = false;
-    @track animationData = null;
-    @track animationInstance = null;
-    voiceVisualizationUrl = voiceVisualization;
+    // Static image for listening visualization
+    listeningImageUrl = Listening; // Using new Listening image
+    // voiceVisualizationUrl = voiceVisualization; // Backup option
     
     // External form identification
     @track externalFormId; // Unique identifier for form instances
@@ -55,14 +53,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     RPISTOLWCSubscription = null;
 
     connectedCallback() {
-        loadScript(this, lottie)
-            .then(() => {
-                this.lottieLoaded = true;
-                this.loadAnimation();
-            })
-            .catch((error) => {
-                console.error("Error loading Lottie library", error.message);
-            });
         // Prepare and attach stable handler references so removeEventListener works
         if (!this._boundFocusIn) {
             this._boundFocusIn = this.handleFieldFocus.bind(this);
@@ -160,7 +150,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     field.value = fieldValue;
                     
                     // Add to filled fields tracking
-                    if (fieldValue != null && fieldValue !== '') {
+                    if (fieldValue != null && fieldValue !== undefined && fieldValue !== '') {
                         this.filledFields.add(fieldName);
                         fieldsPopulated++;
                     }
@@ -180,6 +170,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 this.updateSectionProgress(section.fieldComponents?.[0]?.apiName);
             });
             
+        // Update field styling for populated fields individually (avoid bulk updates after data load)
+        Promise.resolve().then(() => {
+            this.updateIndividualFieldStyling();
+        });
+            
             // Save the updated form data to session storage
             this.saveFormData();
             
@@ -192,9 +187,154 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     renderedCallback() {
-        if (this.lottieLoaded && !this.animationInstance) {
-            this.loadAnimation();
+        // Field layout is handled statically by the field generation logic
+        
+        // Don't do bulk styling updates in renderedCallback - causes issues after refresh
+        // Individual field styling is handled by specific methods when needed
+    }
+    
+    
+    // Update styling for a single field that was changed
+    updateSingleFieldStyling(lightningField) {
+        try {
+            // Find the container for this specific field
+            const container = lightningField.closest('.slds-col');
+            if (container) {
+                const fieldValue = lightningField.value;
+                
+                // Check if this field actually has a non-empty value
+                const hasValue = this.fieldHasValue(fieldValue);
+                
+                if (hasValue) {
+                    container.classList.add('field-with-value');
+                } else {
+                    container.classList.remove('field-with-value');
+                }
+            }
+        } catch (error) {
+            console.warn('Error updating single field styling:', error);
         }
+    }
+    
+    // Update field styling individually based on filledFields set (safe after data load)
+    updateIndividualFieldStyling() {
+        // Prevent multiple rapid calls
+        if (this.isUpdatingStyling) {
+            return;
+        }
+        
+        this.isUpdatingStyling = true;
+        
+        Promise.resolve().then(() => {
+            this.doUpdateIndividualFieldStyling();
+            this.isUpdatingStyling = false;
+        });
+    }
+    
+    doUpdateIndividualFieldStyling() {
+        try {
+            // Clear processed fields at start of new run
+            this.processedFields = new Set();
+            
+            // Get all lightning-input-field elements and work backwards to containers
+            const allLightningFields = this.template.querySelectorAll('lightning-input-field');
+            
+            allLightningFields.forEach(lightningField => {
+                const container = lightningField.closest('.slds-col');
+                if (container) {
+                    this.processSingleFieldStyling(container, lightningField);
+                }
+            });
+            
+            // Clear at the end
+            this.processedFields.clear();
+        } catch (error) {
+            console.warn('Error updating individual field styling:', error);
+        }
+    }
+    
+    processSingleFieldStyling(container, lightningField) {
+        const fieldName = lightningField.fieldName;
+        
+        // Check for duplicate processing
+        if (this.processedFields.has(fieldName)) {
+            return;
+        }
+        this.processedFields.add(fieldName);
+        
+        // Use filledFields set which is accurate after data restoration
+        const hasValue = this.filledFields.has(fieldName);
+        
+        if (hasValue) {
+            container.classList.add('field-with-value');
+            container.setAttribute('data-has-value', 'true');
+        } else {
+            container.classList.remove('field-with-value');
+            container.setAttribute('data-has-value', 'false');
+        }
+    }
+    
+    // Update field styling to highlight fields with values (used for bulk updates)
+    updateFieldStyling() {
+        try {
+            // Get all field containers
+            const fieldContainers = this.template.querySelectorAll('.slds-col');
+            
+            fieldContainers.forEach(container => {
+                const lightningField = container.querySelector('lightning-input-field');
+                if (lightningField) {
+                    const fieldValue = lightningField.value;
+                    
+                    // Always check actual field values, not just the filledFields set
+                    // This prevents stale data after page refresh
+                    const hasValue = this.fieldHasValue(fieldValue);
+                    
+                    if (hasValue) {
+                        container.classList.add('field-with-value');
+                    } else {
+                        container.classList.remove('field-with-value');
+                    }
+                }
+            });
+        } catch (error) {
+            console.warn('Error updating field styling:', error);
+        }
+    }
+    
+    // Helper method to determine if a field has a meaningful value
+    fieldHasValue(value) {
+        // Handle different value types
+        if (value === null || value === undefined) {
+            return false;
+        }
+        
+        // For boolean fields, both true and false are considered "has value"
+        if (typeof value === 'boolean') {
+            return true;
+        }
+        
+        // For numbers, including 0
+        if (typeof value === 'number') {
+            return true;
+        }
+        
+        // For strings, check if not empty (trim to handle whitespace-only strings)
+        if (typeof value === 'string') {
+            return value.trim() !== '';
+        }
+        
+        // For arrays (multi-select picklists)
+        if (Array.isArray(value)) {
+            return value.length > 0;
+        }
+        
+        // For objects (dates, lookups, etc.)
+        if (typeof value === 'object') {
+            return true;
+        }
+        
+        // Default: if it exists and isn't empty string, it has value
+        return value !== '';
     }
 
     disconnectedCallback() {
@@ -210,62 +350,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             this.template.removeEventListener('click', this._boundClick);
         }
 
-        if (this.animationInstance) {
-            this.animationInstance.destroy();
-            this.animationInstance = null;
-        }
+        // No cleanup needed for static images
     }
 
-    loadAnimation() {
-        if (!this.lottieLoaded) return;
+    // No animation methods needed - using simple image
 
-        fetch(this.voiceVisualizationUrl)
-        .then((response) => {
-            if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response?.status}`);
-            }
-            return response.json();
-        })
-        .then((animationData) => {
-            this.animationData = animationData;
-            this.renderAnimation();
-        })
-        .catch((error) => {
-            console.error("Error loading animation data", error);
-        });
-    }
-
-    renderAnimation() {
-        if (!this.animationData || !this.lottieLoaded) return;
-    
-        const animationContainer = this.template.querySelector(
-          ".animation-container"
-        );
-        if (!animationContainer) return;
-    
-        while (animationContainer.firstChild) {
-          animationContainer.removeChild(animationContainer.firstChild);
-        }
-    
-        const animationDiv = document.createElement("div");
-        animationDiv.style.width = "100%";
-        animationDiv.style.height = "100%";
-        animationContainer.appendChild(animationDiv);
-    
-        try {
-          this.animationInstance = window.lottie.loadAnimation({
-            container: animationDiv,
-            renderer: "svg",
-            loop: true,
-            autoplay: true,
-            animationData: this.animationData
-          });
-        } catch (error) {
-          console.error("Error rendering Lottie animation", error);
-        }
-      }
-
-    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back)
+    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back and auto-population if Contact)
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
@@ -274,14 +364,18 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const recordId = state.c__recordId || state.recordId || '';
             const externalFormId = state.c__externalFormId || '';
             const mode = state.c__mode || 'new';
+            // Check if recordId is a Contact ID (starts with '003')
+            const recordIdToCheck = state.c__recordId || state.recordId || '';
+            const contactId = recordIdToCheck.startsWith('003') ? recordIdToCheck : null;
             
             
             if (formId) {
                 // If param-driven and changed, reload
-                if (formId !== this.selectedForm || externalFormId !== this.externalFormId) {
+                if (formId !== this.selectedForm || externalFormId !== this.externalFormId || contactId !== this.contactId) {
                     this.formPreselected = true;
                     this.selectedForm = formId;
                     this.sourceRecordId = recordId; // Store source record ID for navigation back
+                    this.contactId = contactId; // Store contact ID for auto-population
                     this.externalFormId = externalFormId || 'default';
                     this.isEditMode = (mode === 'edit');
                     this.resetFormState();
@@ -322,9 +416,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
-        // Note: Don't reset externalFormId and isEditMode here as they come from URL params
+        // Note: Don't reset externalFormId, isEditMode, and contactId here as they come from URL params
         this.showSuccessModal = false;
         this.createdRecordId = null;
+        // Removed _hasInitialStyleUpdate flag - no longer needed
     }
 
     // ========== DATA LOADING ==========
@@ -342,15 +437,38 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             this.recordTypeId = result.recordTypeId;
             this.recordTypeName = result.recordTypeName || '';
             
-            // Create fields array with API names and full-width logic
-            this.fieldsArray = result.fields.map((fieldName, fieldIndex) => {
-                const isFullWidth = (result.fields.length % 2 === 1) && (fieldIndex === result.fields.length - 1);
+            // Create fields array with 3-column grid system
+            this.fieldsArray = result.fields.map((fieldName, index) => {
+                const totalFields = result.fields.length;
+                const remainingFields = totalFields % 3;
+                const isInRemainingGroup = index >= totalFields - remainingFields && remainingFields > 0;
+                
+                let cssClass;
+                
+                if (totalFields === 1) {
+                    // Single field takes full width
+                    cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small full-width-field";
+                } else if (totalFields === 2) {
+                    // Two fields split full width (50% each)
+                    cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small remaining-field";
+                } else if (isInRemainingGroup) {
+                    // Remaining fields (1 or 2) take full width and split evenly
+                    if (remainingFields === 1) {
+                        cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small remaining-field full-width-field";
+                    } else {
+                        // 2 remaining fields split 50/50
+                        cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small remaining-field";
+                    }
+                } else {
+                    // First 3 fields (or multiples of 3) use 3-column layout
+                    cssClass = "slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-var-m-bottom_x-small grid-field";
+                }
+                
                 return {
                     apiName: fieldName,
-                    isFullWidth: isFullWidth,
-                    cssClass: isFullWidth 
-                        ? "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small full-width-field"
-                        : "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small"
+                    isFullWidth: totalFields === 1 || (isInRemainingGroup && remainingFields === 1),
+                    cssClass: cssClass,
+                    isRemainingField: isInRemainingGroup
                 };
             });
             
@@ -359,6 +477,14 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             
             // Load saved form data
             this.loadFormData();
+            
+            // Auto-populate contact and account fields if contact ID is provided
+            if (this.contactId) {
+                this.autoPopulateContactFields();
+            }
+            
+            // Trigger layout adjustment after data is loaded
+            Promise.resolve().then(() => this.adjustFieldLayout());
             
         } catch (error) {
             console.error('Error loading field data:', error);
@@ -383,13 +509,36 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 ...section,
                 sectionName: section.text, // Section name from Name field
                 fieldComponents: section.fields.map((field, fieldIndex) => {
-                    const isFullWidth = (section.fields.length % 2 === 1) && (fieldIndex === section.fields.length - 1);
+                    const totalFields = section.fields.length;
+                    const remainingFields = totalFields % 3;
+                    const isInRemainingGroup = fieldIndex >= totalFields - remainingFields && remainingFields > 0;
+                    
+                    let cssClass;
+                    
+                    if (totalFields === 1) {
+                        // Single field takes full width
+                        cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small full-width-field";
+                    } else if (totalFields === 2) {
+                        // Two fields split full width (50% each)
+                        cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small remaining-field";
+                    } else if (isInRemainingGroup) {
+                        // Remaining fields (1 or 2) take full width and split evenly
+                        if (remainingFields === 1) {
+                            cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small remaining-field full-width-field";
+                        } else {
+                            // 2 remaining fields split 50/50
+                            cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small remaining-field";
+                        }
+                    } else {
+                        // First 3 fields (or multiples of 3) use 3-column layout
+                        cssClass = "slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-var-m-bottom_xx-small grid-field";
+                    }
+                    
                     return {
                         apiName: field,
-                        isFullWidth: isFullWidth,
-                        cssClass: isFullWidth 
-                            ? "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small full-width-field"
-                            : "slds-col slds-size_1-of-1 slds-small-size_6-of-12 slds-var-m-bottom_xx-small"
+                        isFullWidth: totalFields === 1 || (isInRemainingGroup && remainingFields === 1),
+                        cssClass: cssClass,
+                        isRemainingField: isInRemainingGroup
                     };
                 }),
                 isCompleted: false,
@@ -452,7 +601,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         if (typeof value === 'boolean') {
             // For boolean fields, any interaction (true or false) counts as filled
             this.filledFields.add(fieldName);
-        } else if (value != null && value !== '') {
+        } else if (value != null && value !== undefined && value !== '') {
             // For other fields, only non-empty values count as filled
             this.filledFields.add(fieldName);
         } else {
@@ -463,11 +612,17 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         // Trigger reactivity
         this.filledFields = new Set(this.filledFields);
         
+        // Update field visual styling ONLY for the field that changed
+        this.updateSingleFieldStyling(event.target);
+        
         // Update step progress
         this.updateStepProgress();
         
         // Update section completion status
         this.updateSectionProgress(fieldName);
+        
+        // Adjust field layout in case field visibility changed
+        Promise.resolve().then(() => this.adjustFieldLayout());
         
         // Debounced save to session storage
         if (this._saveDataTimeout) {
@@ -844,7 +999,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     generateSessionKey() {
         const recordId = this.sourceRecordId || 'new';
         const externalFormId = this.externalFormId || 'default';
-        return `${recordId}-${this.selectedForm}-${this.selectedObject}-${externalFormId}`;
+        const contactIdParam = this.contactId || 'none';
+        return `${recordId}-${this.selectedForm}-${this.selectedObject}-${externalFormId}-${contactIdParam}`;
     }
     
     extractFieldValues() {
@@ -927,6 +1083,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         // Restore the exact filled fields that were saved (don't reconstruct from values)
         this.filledFields = new Set(savedFilledFields);
         this.updateStepProgress();
+        
+        // Update field styling for restored values individually (avoid bulk updates after refresh)
+        Promise.resolve().then(() => {
+            this.updateIndividualFieldStyling();
+        });
     }
     
     clearFormData() {
@@ -937,6 +1098,74 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             sessionStorage.removeItem(sessionKey);
         } catch (error) {
             console.error('Error clearing form data:', error);
+        }
+    }
+
+    // ========== AUTO-POPULATION METHODS ==========
+    
+    async autoPopulateContactFields() {
+        try {
+            if (!this.contactId || !this.fieldsArray) {
+                return;
+            }
+            
+            console.log('Auto-populating contact fields for contact ID:', this.contactId);
+            
+            // Check if form has Contact or Account fields
+            const hasContactField = this.fieldsArray.some(field => 
+                field.apiName === 'ContactId' || field.apiName === 'Contact__c'
+            );
+            const hasAccountField = this.fieldsArray.some(field => 
+                field.apiName === 'AccountId' || field.apiName === 'Account__c'
+            );
+            
+            if (!hasContactField && !hasAccountField) {
+                console.log('No Contact or Account fields found in form - skipping auto-population');
+                return;
+            }
+            
+            // Fetch contact and account data
+            const contactData = await getContactAndAccountData({ contactId: this.contactId });
+            console.log('Retrieved contact data:', contactData);
+            
+            // Wait for form to render
+            await Promise.resolve();
+            
+            // Auto-populate fields
+            const fieldsToPopulate = {};
+            
+            if (hasContactField && contactData.contactId) {
+                // Try common Contact field names
+                if (this.fieldsArray.some(field => field.apiName === 'ContactId')) {
+                    fieldsToPopulate.ContactId = contactData.contactId;
+                }
+                if (this.fieldsArray.some(field => field.apiName === 'Contact__c')) {
+                    fieldsToPopulate.Contact__c = contactData.contactId;
+                }
+            }
+            
+            if (hasAccountField && contactData.accountId) {
+                // Try common Account field names
+                if (this.fieldsArray.some(field => field.apiName === 'AccountId')) {
+                    fieldsToPopulate.AccountId = contactData.accountId;
+                }
+                if (this.fieldsArray.some(field => field.apiName === 'Account__c')) {
+                    fieldsToPopulate.Account__c = contactData.accountId;
+                }
+            }
+            
+            // Populate the fields
+            if (Object.keys(fieldsToPopulate).length > 0) {
+                this.populateFormFields(fieldsToPopulate);
+                // Update styling for auto-populated fields individually (avoid bulk updates)
+                Promise.resolve().then(() => {
+                    this.updateIndividualFieldStyling();
+                });
+                console.log('Auto-populated fields:', fieldsToPopulate);
+            }
+            
+        } catch (error) {
+            console.error('Error auto-populating contact fields:', error);
         }
     }
 
@@ -964,7 +1193,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             title: title,
             message: message,
             variant: variant,
-            mode: variant === 'error' ? 'sticky' : 'dismissable'
+            mode: variant === 'dismissable'
         });
         this.dispatchEvent(evt);
     }

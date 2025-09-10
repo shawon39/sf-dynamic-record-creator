@@ -199,7 +199,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         this[NavigationMixin.Navigate]({
             type: 'standard__navItemPage',
             attributes: {
-                apiName: 'Dynamic_Record_Creator'
+                apiName: 'RocketForm'
             },
             state: navigationState
         });
@@ -271,7 +271,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             this[NavigationMixin.Navigate]({
                 type: 'standard__navItemPage',
                 attributes: {
-                    apiName: 'Dynamic_Record_Creator'
+                    apiName: 'RocketForm'
                 },
                 state: navigationState
             });

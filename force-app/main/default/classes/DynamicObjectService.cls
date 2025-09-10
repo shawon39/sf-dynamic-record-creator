@@ -210,4 +210,65 @@ public with sharing class DynamicObjectService {
             throw new AuraHandledException('Failed to retrieve instructions: ' + e.getMessage());
         }
     }
+
+    public class ContactData {
+        @AuraEnabled public String contactId;
+        @AuraEnabled public String accountId;
+        @AuraEnabled public String contactName;
+        @AuraEnabled public String accountName;
+        
+        public ContactData(String contactId, String accountId, String contactName, String accountName) {
+            this.contactId = contactId;
+            this.accountId = accountId;
+            this.contactName = contactName;
+            this.accountName = accountName;
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static ContactData getContactAndAccountData(String contactId) {
+        try {
+            Console.log('getContactAndAccountData: Getting contact and account data for contact ID: ' + contactId);
+            
+            if (String.isBlank(contactId)) {
+                throw new IllegalArgumentException('Contact ID cannot be blank');
+            }
+            
+            // Check if user has access to Contact object
+            if (!Schema.sObjectType.Contact.isAccessible()) {
+                throw new AuraHandledException('No access to Contact records');
+            }
+            
+            // Query contact and related account data
+            List<Contact> contacts = [
+                SELECT Id, Name, AccountId, Account.Name
+                FROM Contact 
+                WHERE Id = :contactId 
+                LIMIT 1
+            ];
+            
+            if (contacts.isEmpty()) {
+                throw new AuraHandledException('Contact not found for ID: ' + contactId);
+            }
+            
+            Contact contact = contacts[0];
+            Console.log('getContactAndAccountData: Found contact: ' + contact.Name);
+            
+            String accountId = contact.AccountId;
+            String accountName = contact.Account?.Name;
+            
+            if (String.isNotBlank(accountId)) {
+                Console.log('getContactAndAccountData: Found related account: ' + accountName);
+            } else {
+                Console.log('getContactAndAccountData: Contact has no related account');
+            }
+            
+            return new ContactData(contact.Id, accountId, contact.Name, accountName);
+            
+        } catch (Exception e) {
+            Console.log('Error in getContactAndAccountData: ' + e.getMessage());
+            Console.log('Error stack trace: ' + e.getStackTraceString());
+            throw new AuraHandledException('Failed to retrieve contact and account data: ' + e.getMessage());
+        }
+    }
 } 

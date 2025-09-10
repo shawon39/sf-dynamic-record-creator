@@ -169,7 +169,7 @@ lightning-dual-listbox {
     color: #6b46c1;
 }
 
-/* Minimize field column gaps while maintaining flexbox two-column layout */
+/* SLDS-based 3-column grid with remaining fields taking full width */
 .minimal-gap-grid {
     margin-left: calc(-1 * var(--slds-c-spacing-xxx-small, 0.125rem)) !important;
     margin-right: calc(-1 * var(--slds-c-spacing-xxx-small, 0.125rem)) !important;
@@ -180,10 +180,52 @@ lightning-dual-listbox {
     padding-right: var(--slds-c-spacing-xxx-small, 0.125rem) !important;
 }
 
-/* Full-width field for odd-numbered field counts */
+/* Grid fields and remaining fields use SLDS classes directly, no additional styling needed */
+
+/* Full-width field styling for single fields */
 .full-width-field {
-    flex: 0 0 100% !important;
-    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Styling for input fields with values using SLDS styling hooks - more specific selectors */
+.slds-col.field-with-value lightning-input-field,
+.slds-col.field-with-value lightning-input,
+.slds-col.field-with-value lightning-textarea,
+.slds-col.field-with-value lightning-combobox,
+.slds-col.field-with-value lightning-lookup,
+.slds-col.field-with-value lightning-record-picker {
+    --slds-c-input-color-background: #EFFFFF !important;
+    --slds-c-input-color-background-readonly: #EFFFFF !important;
+    --slds-c-textarea-color-background: #EFFFFF !important;
+    --slds-c-combobox-color-background: #EFFFFF !important;
+    --slds-c-lookup-color-background: #EFFFFF !important;
+    --slds-c-select-color-background: #EFFFFF !important;
+}
+
+/* Force styling with more specific selectors and !important */
+.slds-col.field-with-value lightning-input-field input,
+.slds-col.field-with-value lightning-input-field textarea,
+.slds-col.field-with-value lightning-input-field select,
+.slds-col.field-with-value lightning-input input,
+.slds-col.field-with-value lightning-textarea textarea,
+.slds-col.field-with-value lightning-combobox input,
+.slds-col.field-with-value lightning-lookup input {
+    background-color: #EFFFFF !important;
+}
+
+/* Alternative approach using data attributes for better Shadow DOM compatibility */
+.slds-col[data-has-value="true"] lightning-input-field,
+.slds-col[data-has-value="true"] lightning-input,
+.slds-col[data-has-value="true"] lightning-textarea,
+.slds-col[data-has-value="true"] lightning-combobox,
+.slds-col[data-has-value="true"] lightning-lookup,
+.slds-col[data-has-value="true"] lightning-record-picker {
+    --slds-c-input-color-background: #EFFFFF !important;
+    --slds-c-input-color-background-readonly: #EFFFFF !important;
+    --slds-c-textarea-color-background: #EFFFFF !important;
+    --slds-c-combobox-color-background: #EFFFFF !important;
+    --slds-c-lookup-color-background: #EFFFFF !important;
+    --slds-c-select-color-background: #EFFFFF !important;
 }
 
 /* Custom progress marker override using styling hooks */
@@ -206,6 +248,15 @@ lightning-dual-listbox {
     margin-right: calc(-1 * var(--slds-c-spacing-small, 0.75rem)) !important;
 }
 
-/* Animation container styling moved to HTML template using SLDS utility classes */
+/* Simple image styling for listening visualization */
+.listening-image {
+    max-width: 100%;
+    max-height: 80px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Using SLDS utility classes in HTML for alignment, minimal custom styling needed */
 
 
