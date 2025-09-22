@@ -246,6 +246,18 @@ lightning-dual-listbox {
 .progress-summary-aligned {
     margin-left: calc(-1 * var(--slds-c-spacing-small, 0.75rem)) !important;
     margin-right: calc(-1 * var(--slds-c-spacing-small, 0.75rem)) !important;
+    padding-right: .5rem !important;
+}
+
+/* Fine-tuned alignment for form name display */
+.form-name-aligned {
+    margin-left: .5rem !important;
+    margin-right: 1rem !important;
+}
+
+/* Progress bar alignment */
+.progress-bar-aligned {
+    padding-right: .5rem !important;
 }
 
 /* Simple image styling for listening visualization */
@@ -255,6 +267,11 @@ lightning-dual-listbox {
     width: auto;
     height: auto;
     object-fit: contain;
+}
+
+/* Reduce gap between RocketForm title and form display */
+.form-display-section {
+    margin-top: -1.5rem !important;
 }
 
 /* Using SLDS utility classes in HTML for alignment, minimal custom styling needed */

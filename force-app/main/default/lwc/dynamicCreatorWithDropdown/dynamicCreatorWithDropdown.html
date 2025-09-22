@@ -21,18 +21,18 @@
     </template>
     <div class="slds-var-p-left_xx-large slds-var-p-right_xx-large slds-var-p-bottom_xx-large">
     <!-- Selected form display with 50/50 layout -->
-    <div class="slds-var-p-top_x-small slds-var-p-horizontal_x-small slds-var-p-bottom_x-small">
+    <div class="slds-var-p-top_x-small slds-var-p-horizontal_x-small slds-var-p-bottom_x-small form-display-section">
       <template if:true={selectedForm}>
         <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
-          <!-- Left: Selected form display (50% width) -->
-          <div class="slds-col slds-size_6-of-12">
-            <div class="selected-object-display slds-var-p-around_x-small">
+          <!-- Left: Selected form display (33% width to match progress bar alignment) -->
+          <div class="slds-col slds-size_4-of-12">
+            <div class="selected-object-display slds-var-p-around_x-small progress-summary-aligned form-name-aligned">
               <span class="selected-object-inline">{selectedFormDisplayName}</span>
             </div>
           </div>
           
-          <!-- Right: Audio section (50% width) -->
-          <div class="slds-col slds-size_6-of-12">
+          <!-- Right: Audio section (67% width) -->
+          <div class="slds-col slds-size_8-of-12">
             <div class="slds-grid slds-grid_align-end">
               <div class="slds-col slds-size_8-of-12 slds-grid slds-grid_align-end">
                 <div class="slds-grid slds-grid_align-end slds-media_center slds-is-relative slds-var-p-vertical_small">
@@ -65,7 +65,7 @@
               </div>
               
               <!-- Progress Bar -->
-              <div class="slds-var-m-bottom_medium">
+              <div class="slds-var-m-bottom_medium progress-bar-aligned">
                 <lightning-progress-bar 
                   value={progressValue} 
                   variant="circular"
@@ -136,7 +136,7 @@
               <template if:false={isLoadingFields}>
                 <lightning-record-edit-form
                   object-api-name={selectedObject}
-                  record-type-id={recordTypeId}
+                  record-type-id={effectiveRecordTypeId}
                   onsuccess={handleSuccess}
                   onerror={handleError}
                 >
@@ -239,7 +239,7 @@
               <template if:false={isLoadingFields}>
                 <lightning-record-edit-form
                   object-api-name={selectedObject}
-                  record-type-id={recordTypeId}
+                  record-type-id={effectiveRecordTypeId}
                   onsuccess={handleSuccess}
                   onerror={handleError}
                 >

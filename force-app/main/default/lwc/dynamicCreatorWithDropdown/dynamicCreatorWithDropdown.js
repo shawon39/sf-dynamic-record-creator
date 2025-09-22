@@ -6,6 +6,8 @@ import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import Listening from "@salesforce/resourceUrl/Listening"; // Current image
 import RPISTOLWC from "@salesforce/messageChannel/FORMMC__c";
 import { subscribe, MessageContext } from 'lightning/messageService';
+import noHeader from '@salesforce/resourceUrl/NoHeader';
+import {loadStyle} from "lightning/platformResourceLoader";
 
 // Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
@@ -53,6 +55,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     RPISTOLWCSubscription = null;
 
     connectedCallback() {
+
+        loadStyle(this, noHeader);
+
         // Prepare and attach stable handler references so removeEventListener works
         if (!this._boundFocusIn) {
             this._boundFocusIn = this.handleFieldFocus.bind(this);
@@ -97,13 +102,13 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 return;
             }
 
-            // Step 1: Parse the top-level 'callFormData' (first JSON parse)
-            const dataObj = JSON.parse(message.callFormData);
-            console.log('Parsed data object:', dataObj);
+            // Step 1: Access callFormData directly (it's already an object)
+            const dataObj = message.callFormData;
+            console.log('Data object:', dataObj);
 
             // Step 2: Parse the 'formData' which is still a JSON string (second JSON parse)
             if (!dataObj.formData) {
-                console.warn('No formData in parsed data object');
+                console.warn('No formData in data object');
                 return;
             }
 
@@ -126,7 +131,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
         } catch (error) {
             console.error('Error processing form data message:', error);
-            this.showToast('Error', 'Failed to process form data: ' + error.message, 'error');
         }
     }
 
@@ -144,7 +148,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 
                 // Check if this field has data in the fieldsDetails
                 if (Object.prototype.hasOwnProperty.call(fieldsDetails, fieldName)) {
-                    const fieldValue = fieldsDetails[fieldName];
+                    let fieldValue = fieldsDetails[fieldName];
+                    
+                    // Process the field value to handle escaped quotes and type conversion
+                    fieldValue = this.processFieldValue(fieldValue, field);
                     
                     // Set the field value
                     field.value = fieldValue;
@@ -155,7 +162,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                         fieldsPopulated++;
                     }
                     
-                    console.log(`Populated field ${fieldName} with value:`, fieldValue);
+                    console.log(`Populated field ${fieldName} with processed value:`, fieldValue);
                 }
             });
             
@@ -182,17 +189,93 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             
         } catch (error) {
             console.error('Error populating form fields:', error);
-            this.showToast('Error', 'Failed to populate form fields: ' + error.message, 'error');
         }
     }
-
-    renderedCallback() {
-        // Field layout is handled statically by the field generation logic
+    
+    // Process field value to handle escaped quotes and type conversion
+    processFieldValue(value, field) {
+        if (value == null || value === undefined) {
+            return value;
+        }
         
-        // Don't do bulk styling updates in renderedCallback - causes issues after refresh
-        // Individual field styling is handled by specific methods when needed
+        let processedValue = value;
+        
+        // Convert to string for processing
+        if (typeof processedValue !== 'string') {
+            processedValue = String(processedValue);
+        }
+        
+        // Handle escaped Unicode quotes (\\u0022 becomes ")
+        processedValue = processedValue.replace(/\\u0022/g, '"');
+        
+        // Remove surrounding quotes if they exist
+        if (processedValue.startsWith('"') && processedValue.endsWith('"')) {
+            processedValue = processedValue.slice(1, -1);
+        }
+        
+        // Get field type from lightning-input-field element
+        const fieldType = field.type || this.getFieldTypeFromElement(field);
+        const fieldName = field.fieldName;
+        
+        // Handle lookup fields (AccountId, ContactId, etc.)
+        if (fieldType === 'lookup' || fieldName.endsWith('Id') || fieldName.endsWith('__c')) {
+            // For lookup fields, ensure we return a clean string ID
+            return processedValue.trim();
+        }
+        
+        // Convert based on field type
+        if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'percent') {
+            const numberValue = parseFloat(processedValue);
+            return isNaN(numberValue) ? processedValue : numberValue;
+        } else if (fieldType === 'integer') {
+            const intValue = parseInt(processedValue, 10);
+            return isNaN(intValue) ? processedValue : intValue;
+        } else if (fieldType === 'checkbox' || fieldType === 'boolean') {
+            return processedValue === 'true' || processedValue === true;
+        }
+        
+        // For all other types (text, email, phone, etc.), return as string
+        return processedValue;
     }
     
+    // Helper method to get field type from lightning-input-field element
+    getFieldTypeFromElement(field) {
+        // Try to get type from the field element
+        if (field.type) {
+            return field.type;
+        }
+        
+        // Check if we can get it from the field's attributes or dataset
+        const fieldName = field.fieldName;
+        
+        if (!fieldName) {
+            return 'text';
+        }
+        
+        const lowerFieldName = fieldName.toLowerCase();
+        
+        // Detect lookup fields (reference fields)
+        if (fieldName.endsWith('Id') && !fieldName.includes('External')) {
+            return 'lookup';
+        }
+        if (fieldName.endsWith('__c') && (lowerFieldName.includes('account') || lowerFieldName.includes('contact') || lowerFieldName.includes('user'))) {
+            return 'lookup';
+        }
+        
+        // Common patterns for field types based on field names
+        if (lowerFieldName.includes('amount')) {
+            return 'currency';
+        }
+        if (lowerFieldName.includes('percent')) {
+            return 'percent';
+        }
+        if (lowerFieldName.includes('number') || lowerFieldName.includes('count')) {
+            return 'number';
+        }
+        
+        // Default to text if we can't determine the type
+        return 'text';
+    }
     
     // Update styling for a single field that was changed
     updateSingleFieldStyling(lightningField) {
@@ -486,7 +569,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             
         } catch (error) {
             console.error('Error loading field data:', error);
-            this.showToast('Error', 'Failed to load form configuration: ' + this.getErrorMessage(error), 'error');
             this.fieldsArray = [];
         } finally {
             this.isLoadingFields = false;
@@ -885,7 +967,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
     handleError(event) {
         console.error('Create error', event.detail);
-        this.showToast('Error', 'Failed to create record: ' + event.detail.message, 'error');
     }
 
 
@@ -1207,6 +1288,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return `${this.selectedObject} / ${this.selectedFormName}`;
         }
         return this.selectedFormName || '';
+    }
+
+    // Getter for record type ID - returns null if record type is Master
+    get effectiveRecordTypeId() {
+        // Don't set record type ID for Master record types
+        if (this.recordTypeName === 'Master' || this.recordTypeName === 'master') {
+            return null;
+        }
+        return this.recordTypeId;
     }
 
 }

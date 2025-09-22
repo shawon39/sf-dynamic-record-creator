@@ -1,6 +1,6 @@
 import { LightningElement, wire, track } from 'lwc';
 import { publish, MessageContext, subscribe } from 'lightning/messageService';
-import webSocketManager from 'c/signalRManagerDev';
+import signalRManager from 'c/signalRManagerDev';
 import TRANSCRIPTMC from "@salesforce/messageChannel/rocketphone__TRANSCRIPTMC__c";
 import RPISTOLWC from "@salesforce/messageChannel/FORMMC__c";
 
@@ -22,101 +22,100 @@ export default class RpRealTimeClientDev extends LightningElement {
         }
         this.transcriptSubscription = subscribe(this.context, TRANSCRIPTMC, (message) => {
             this.handleTranscriptMessage(message);
-            console.log('rpRealTimeClientDev Received TRANSCRIPTMC Message:', message);
+            console.log('rpRealTimeClientQA Received TRANSCRIPTMC Message:', message);
         });
     }
 
     async handleTranscriptMessage(message) {
         try {
-            if (message?.callRecordId && (this.currentCallRecordId === null || this.currentCallRecordId === '' || message?.callRecordId !== this.currentCallRecordId)) {
+            if (message?.callRecordId && (this.currentCallRecordId == null || this.currentCallRecordId == '' || message?.callRecordId !== this.currentCallRecordId)) {
                 this.currentCallRecordId = message?.callRecordId;
-                console.log('rpRealTimeClientDev this.currentCallRecordId:', this.currentCallRecordId);
+                console.log('rpRealTimeClientQA this.currentCallRecordId:', this.currentCallRecordId);
             }
         } catch (rpBotError) {
-            console.error('rpRealTimeClientDev Error in handleTranscriptMessage:', rpBotError);
+            console.error('rpRealTimeClientQA Error in handleTranscriptMessage:', rpBotError);
         }
     }
 
     async renderedCallback() {
         try {
-            const connection = await webSocketManager.initialize(this);
+            const connection = await signalRManager.initialize(this);
             if (connection) {
                 this.setupEventHandlers(connection);
             }
         } catch (error) {
-            console.error('RpRealTimeClientDev: Error initializing WebSocket:', error);
+            console.error('rpRealTimeClientQA: Error initializing WebSocket:', error);
         }
     }
 
-    setupEventHandlers() {
+    setupEventHandlers(connection) {
         // Setup event handlers for WebSocket messages
-        webSocketManager.on('CallStatusChanged', (data) => {
+        signalRManager.on('CallStatusChanged', (data) => {
             const normalizedData = JSON.stringify(data, null, '\t');
-            console.log('RpRealTimeClientDev: CallStatusChanged event received: ', normalizedData);
+            console.log('rpRealTimeClientQA: CallStatusChanged event received: ', normalizedData);
         });
 
-        webSocketManager.on('UserStatusUpdate', (data) => {
+        signalRManager.on('UserStatusUpdate', (data) => {
             const normalizedData = JSON.stringify(data, null, '\t');
-            console.log('RpRealTimeClientDev: UserStatusUpdate event received: ', normalizedData);
+            console.log('rpRealTimeClientQA: UserStatusUpdate event received: ', normalizedData);
         });
 
-        webSocketManager.on('UserDisconnectMessage', (data) => {
+        signalRManager.on('UserDisconnectMessage', (data) => {
             const normalizedData = JSON.stringify(data, null, '\t');
-            console.log('RpRealTimeClientDev: UserDisconnectMessage event received: ', normalizedData);
+            console.log('rpRealTimeClientQA: UserDisconnectMessage event received: ', normalizedData);
         });
 
-        webSocketManager.on('RPBookmarkTriggered', (data) => {
+        signalRManager.on('RPBookmarkTriggered', (data) => {
             const normalizedData = JSON.stringify(data, null, '\t');
-            console.log('RpRealTimeClientDev: RPBookmarkTriggered data: ', data);
-            console.log('RpRealTimeClientDev: RPBookmarkTriggered normalizedData: ', normalizedData);
+            console.log('rpRealTimeClientQA: RPBookmarkTriggered data: ', data);
+            console.log('rpRealTimeClientQA: RPBookmarkTriggered normalizedData: ', normalizedData);
 
         });
 
-        webSocketManager.on('RCTranscription', (transcriptData) => {
-            console.log('RpRealTimeClientDev: RCTranscription event received: ', transcriptData);
+        signalRManager.on('RCTranscription', (transcriptData) => {
+            console.log('rpRealTimeClientQA: RCTranscription event received: ', transcriptData);
         });
 
-        webSocketManager.on('FormDataExtracted', (formData) => {
-            console.log('RpRealTimeClientDev: FormDataExtracted event received: ', formData);
+        signalRManager.on('FormDataExtracted', (formData) => {
+            console.log('rpRealTimeClientQA: FormDataExtracted event received: ', JSON.stringify(formData, null, 2));
             const inProgressFormData = {
                     type: 'inProgressFormData',
                     title: 'rpRealTimeClientDev',
                     callFormData: formData,
                 }
-            console.log('RpRealTimeClientDev: FormDataExtracted inProgressFormData: ', inProgressFormData);
+            console.log('rpRealTimeClientQA: FormDataExtracted inProgressFormData: ', JSON.stringify(inProgressFormData, null, 2));
             publish(this.context, RPISTOLWC, inProgressFormData);
         });
 
         // Additional WebSocket-specific event handlers
-        webSocketManager.on('connection_status', (status) => {
-            console.log('RpRealTimeClientDev: Connection status changed:', status);
+        signalRManager.on('connection_status', (status) => {
+            console.log('rpRealTimeClientQA: Connection status changed:', status);
         });
 
-        webSocketManager.on('error', (error) => {
-            console.error('RpRealTimeClientDev: WebSocket error:', error);
+        signalRManager.on('error', (error) => {
+            console.error('rpRealTimeClientQA: WebSocket error:', error);
         });
 
-        // Log connection state
-        console.log('RpRealTimeClientDev: WebSocket connection state:', webSocketManager.getConnectionState());
     }
 
     handleBookmarkResponse(data) {
-        console.log("RpRealTimeClientDev handleBookmarkResponse data: ", data);
+        console.log("rpRealTimeClientQA handleBookmarkResponse data: ", data);
         if (data) {
             const { callData: { id: callRecordId, actions: rawActions, bookmarks } } = data;
-            console.log("RpRealTimeClientDev data actions", rawActions);
+            console.log("rpRealTimeClientQA data actions", rawActions);
 
             if (bookmarks?.length > 0) {
                 const lastBookmark = bookmarks[bookmarks.length - 1];
+                let lastBookmarkObject = { rpCallId: callRecordId, bookmarkData: lastBookmark };
                 let bookmarkObject = { bookmarkType: 'All', bookmarkData: lastBookmark, rpCallId: callRecordId };
-                console.log("RpRealTimeClientDev handleBookmarkResponse bookmarkObject: ", bookmarkObject);
+                console.log("rpRealTimeClientQA handleBookmarkResponse bookmarkObject: ", bookmarkObject);
             }
 
             if (rawActions?.length > 0) {
                 const lastElement = rawActions[rawActions.length - 1];
                 let isExist = this.capturedBookmark.find(b => b?.id === lastElement.id);
                 if (isExist) {
-                    // eslint-disable-next-line consistent-return
+                    return;
                 }
             }
         }
@@ -124,32 +123,33 @@ export default class RpRealTimeClientDev extends LightningElement {
 
     // Method to send messages to WebSocket
     sendMessage(message) {
-        if (webSocketManager.isConnected()) {
-            return webSocketManager.send(message);
+        if (signalRManager.isConnected()) {
+            return signalRManager.send(message);
+        } else {
+            console.warn('rpRealTimeClientQA: Cannot send message - WebSocket not connected');
+            return false;
         }
-        console.warn('RpRealTimeClient: Cannot send message - WebSocket not connected');
-        return false;
     }
 
     // Method to check connection status
     isConnected() {
-        return webSocketManager.isConnected();
+        return signalRManager.isConnected();
     }
 
     // Method to get connection state
     getConnectionState() {
-        return webSocketManager.getConnectionState();
+        return signalRManager.getConnectionState();
     }
 
     disconnectedCallback() {
         // Remove all event handlers
-        webSocketManager.off('CallStatusChanged');
-        webSocketManager.off('UserStatusUpdate');
-        webSocketManager.off('UserDisconnectMessage');
-        webSocketManager.off('RPBookmarkTriggered');
-        webSocketManager.off('RCTranscription');
-        webSocketManager.off('DetectedQuestions');
-        webSocketManager.off('connection_status');
-        webSocketManager.off('error');
+        signalRManager.off('CallStatusChanged');
+        signalRManager.off('UserStatusUpdate');
+        signalRManager.off('UserDisconnectMessage');
+        signalRManager.off('RPBookmarkTriggered');
+        signalRManager.off('RCTranscription');
+        signalRManager.off('DetectedQuestions');
+        signalRManager.off('connection_status');
+        signalRManager.off('error');
     }
 }

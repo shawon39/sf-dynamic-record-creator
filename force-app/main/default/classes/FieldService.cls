@@ -345,7 +345,7 @@ public with sharing class FieldService {
                 if (section.fields != null && !section.fields.isEmpty()) {
                     for (String fieldName : section.fields) {
                         FieldAnalysisDetail fieldDetail = fieldDetailsMap.get(fieldName);
-                        if (fieldDetail != null && fieldDetail.fieldType != 'REFERENCE') {
+                        if (fieldDetail != null && !isLookupFieldType(fieldDetail.fieldType)) {
                             Map<String, Object> fieldResult = convertFieldDetailToMap(fieldDetail);
                             fieldJsonList.add((String)fieldResult.get('_jsonString'));
                         }
@@ -362,7 +362,7 @@ public with sharing class FieldService {
             // If no sections provided, create a default section with all fields (excluding Lookup fields)
             List<String> defaultFieldJsonList = new List<String>();
             for (FieldAnalysisDetail fieldDetail : fieldDetailsMap.values()) {
-                if (fieldDetail.fieldType != 'REFERENCE') {
+                if (!isLookupFieldType(fieldDetail.fieldType)) {
                     Map<String, Object> fieldResult = convertFieldDetailToMap(fieldDetail);
                     defaultFieldJsonList.add((String)fieldResult.get('_jsonString'));
                 }
@@ -444,10 +444,7 @@ public with sharing class FieldService {
             }
         }
         
-        // Lookup fields - show referenced object
-        else if (fieldType == 'REFERENCE' && field.referenceTo != null) {
-            properties.add('"referenceTo": ' + JSON.serialize(field.referenceTo));
-        }
+        // Note: Lookup fields (REFERENCE) are excluded from JSON generation above
     }
     
     private static Boolean isTextFieldType(String fieldType) {
@@ -457,6 +454,10 @@ public with sharing class FieldService {
     
     private static Boolean isPicklistFieldType(String fieldType) {
         return fieldType == 'PICKLIST' || fieldType == 'MULTIPICKLIST';
+    }
+    
+    private static Boolean isLookupFieldType(String fieldType) {
+        return fieldType == 'REFERENCE';
     }
     
     private static Map<String, String> getFieldDescriptions(String objectName, Set<String> fieldApiNames) {
@@ -533,12 +534,7 @@ public with sharing class FieldService {
             }
         }
         
-        // Lookup fields - show referenced object
-        else if (fieldType == 'REFERENCE' && field.referenceTo != null) {
-            Schema.SObjectType refObject = Schema.getGlobalDescribe().get(field.referenceTo);
-            String refLabel = refObject != null ? refObject.getDescribe().getLabel() : field.referenceTo;
-            report.add('References: ' + refLabel + ' (' + field.referenceTo + ')');
-        }
+        // Note: Lookup fields (REFERENCE) are excluded from analysis reports
         
         // Formula fields - show read-only status
         // No special field properties shown for simplification
