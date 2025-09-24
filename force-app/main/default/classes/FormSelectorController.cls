@@ -20,7 +20,7 @@ public with sharing class FormSelectorController {
             // Build SOQL for user-mode query
             String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Field_Analysis_Details__c ' +
                           'FROM Dynamic_Field_Analysis__c ' +
-                          'WHERE Name != null AND Object_Name__c != null ' +
+                          'WHERE Name != null AND Object_Name__c != null AND IsActive__c = true ' +
                           'ORDER BY Name';
 
             // Execute in USER_MODE to honor FLS + sharing without WITH SECURITY_ENFORCED
