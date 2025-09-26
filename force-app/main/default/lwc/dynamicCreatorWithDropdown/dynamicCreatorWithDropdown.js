@@ -90,28 +90,28 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     subscribeRPISTOLWCMC() {
-        console.log('dynamicCreatorWithDropDown: Subscribing to RPISTOLWC!!');
+        console.log('SHSFORM: ','dynamicCreatorWithDropDown: Subscribing to RPISTOLWC!!');
         if (this.RPISTOLWCSubscription) {
-            console.log('dynamicCreatorWithDropDown: RPISTOLWC subscription already exists');
+            console.log('SHSFORM: ','dynamicCreatorWithDropDown: RPISTOLWC subscription already exists');
             return;
         }
-        console.log('dynamicCreatorWithDropDown: Creating RPISTOLWC subscription');
+        console.log('SHSFORM: ','dynamicCreatorWithDropDown: Creating RPISTOLWC subscription');
         this.RPISTOLWCSubscription = subscribe(this.context, RPISTOLWC, (message) => {
-            console.log('dynamicCreatorWithDropDown: Received RPISTOLWC message:', message);
+            console.log('SHSFORM: ','dynamicCreatorWithDropDown: Received RPISTOLWC message:', message);
             if ( message?.type === 'inProgressFormData') {
                 this.handleFormDataMessage(message);
-                console.log('dynamicCreatorWithDropDown Received RPISTOLWC inProgressFormData Message:', message);
+                console.log('SHSFORM: ','dynamicCreatorWithDropDown Received RPISTOLWC inProgressFormData Message:', message);
             } else {
-                console.log('dynamicCreatorWithDropDown: Message type not inProgressFormData:', message?.type);
+                console.log('SHSFORM: ','dynamicCreatorWithDropDown: Message type not inProgressFormData:', message?.type);
             }
         });
-        console.log('dynamicCreatorWithDropDown: RPISTOLWC subscription created successfully');
+        console.log('SHSFORM: ','dynamicCreatorWithDropDown: RPISTOLWC subscription created successfully');
     }
 
     async handleFormDataMessage(message) {
         try {
-            console.log('SHS: Paichi');
-            console.log('SHS: Received form data message:', message);
+            console.log('SHSFORM: ','SHS: Paichi');
+            console.log('SHSFORM: ','SHS: Received form data message:', message);
             
             if (!message || !message.callFormData) {
                 console.warn('No callFormData in message');
@@ -120,7 +120,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
             // Step 1: Access callFormData directly (it's already an object)
             const dataObj = message.callFormData;
-            console.log('Data object:', dataObj);
+            console.log('SHSFORM: ','Data object:', dataObj);
 
             // Step 2: Parse the 'formData' which is still a JSON string (second JSON parse)
             if (!dataObj.formData) {
@@ -129,7 +129,21 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             }
 
             const formDataObj = JSON.parse(dataObj.formData);
-            console.log('Parsed form data object:', formDataObj);
+            console.log('SHSFORM: ','Parsed form data object:', formDataObj);
+
+            // ✅ CRITICAL FIX: Form Targeting Validation
+            // Check if this message is meant for THIS specific form instance using activeFormId
+            if (dataObj.activeFormId) {
+                if (dataObj.activeFormId !== this.externalFormId) {
+                    console.log('SHSFORM: ',`FormDataMessage targeting validation: Message meant for form '${dataObj.activeFormId}', but this is form '${this.externalFormId}'. Ignoring message to prevent data corruption.`);
+                    return; // Exit early - not meant for this form
+                }
+                console.log('SHSFORM: ',`FormDataMessage targeting validation: Message confirmed for this form '${this.externalFormId}'. Processing...`);
+            } else {
+                // For backward compatibility: if no activeFormId, check if we have an externalFormId
+                // Only process if this is the only form or if we're in a fallback scenario
+                console.log('SHSFORM: ',`FormDataMessage targeting validation: No activeFormId in message. Current form: '${this.externalFormId}'. Processing with caution - potential data corruption risk in multi-form scenarios.`);
+            }
 
             // Step 3: Extract the field details
             if (!formDataObj.fieldsDetails) {
@@ -138,7 +152,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             }
 
             const fieldsDetails = formDataObj.fieldsDetails;
-            console.log('Fields to populate:', fieldsDetails);
+            console.log('SHSFORM: ','Fields to populate for form ' + this.externalFormId + ':', fieldsDetails);
 
             // Wait for DOM to be ready then populate the fields
             await Promise.resolve();
@@ -151,9 +165,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     populateFormFields(fieldsDetails) {
-        console.log('SHS: Paichiv2');
+        console.log('SHSFORM: ','SHS: Paichiv2');
         try {
-            console.log('Populating form fields with:', fieldsDetails);
+            console.log('SHSFORM: ','Populating form fields with:', fieldsDetails);
             
             // Get all lightning-input-field elements
             const inputFields = this.template.querySelectorAll('lightning-input-field');
@@ -178,7 +192,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                         fieldsPopulated++;
                     }
                     
-                    console.log(`Populated field ${fieldName} with processed value:`, fieldValue);
+                    console.log('SHSFORM: ',`Populated field ${fieldName} with processed value:`, fieldValue);
                 }
             });
             
@@ -201,7 +215,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             // Save the updated form data to session storage
             this.saveFormData();
             
-            console.log(`Successfully populated ${fieldsPopulated} fields`);
+            console.log('SHSFORM: ',`Successfully populated ${fieldsPopulated} fields`);
             
         } catch (error) {
             console.error('Error populating form fields:', error);
@@ -549,7 +563,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         try {
             const result = await getObjectFieldsData({ analysisId: this.selectedForm });
-            console.log('Field data received:', result);
+            console.log('SHSFORM: ','Field data received:', result);
             
             this.objectFieldsData = result;
             this.selectedObject = result.objectName;
@@ -674,7 +688,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             // Update step progress
             this.updateStepProgress();
         } else {
-            console.log('No custom sections found, not showing any sections');
+            console.log('SHSFORM: ','No custom sections found, not showing any sections');
             this.sectionSteps = [];
         }
     }
@@ -997,12 +1011,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         if (this.isUpdateMode) {
             // Handle update success - update existing draft record with current form data
-            console.log(`${this.selectedObject} updated: ${recordId}`);
+            console.log('SHSFORM: ',`${this.selectedObject} updated: ${recordId}`);
             await this.updateDraftWithCurrentFormData();
             this.showToast('Success', `${this.selectedObject} record updated successfully!`, 'success');
         } else {
             // Handle create success
-            console.log(`${this.selectedObject} created: ${recordId}`);
+            console.log('SHSFORM: ',`${this.selectedObject} created: ${recordId}`);
             
             if (this.isEditingDraft && this.draftRecordId) {
                 // Update existing draft status to 'Created' and store record ID
@@ -1026,7 +1040,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     draftId: this.draftRecordId, 
                     createdRecordId: createdRecordId 
                 });
-                console.log('Successfully updated draft status to Created:', this.draftRecordId);
+                console.log('SHSFORM: ','Successfully updated draft status to Created:', this.draftRecordId);
             }
         } catch (error) {
             console.warn('Error updating draft status:', error);
@@ -1064,7 +1078,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 createdRecordId: createdRecordId 
             });
 
-            console.log('Successfully created reference draft for record:', createdRecordId);
+            console.log('SHSFORM: ','Successfully created reference draft for record:', createdRecordId);
 
         } catch (error) {
             console.warn('Error creating reference draft:', error);
@@ -1095,7 +1109,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 // Update existing draft record with current form data
                 await saveDraftForm({ formDataJson: JSON.stringify(formData) });
                 
-                console.log('Successfully updated draft with current form data:', this.draftRecordId);
+                console.log('SHSFORM: ','Successfully updated draft with current form data:', this.draftRecordId);
             }
         } catch (error) {
             console.warn('Error updating draft with current form data:', error);
@@ -1238,7 +1252,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 this.updateIndividualFieldStyling();
             });
             
-            console.log('Successfully loaded draft form data');
+            console.log('SHSFORM: ','Successfully loaded draft form data');
             
         } catch (error) {
             console.error('Error populating fields from draft:', error);
@@ -1515,7 +1529,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 return;
             }
             
-            console.log('Auto-populating contact fields for contact ID:', this.contactId);
+            console.log('SHSFORM: ','Auto-populating contact fields for contact ID:', this.contactId);
             
             // Check if form has Contact or Account fields
             const hasContactField = this.fieldsArray.some(field => 
@@ -1526,13 +1540,13 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             );
             
             if (!hasContactField && !hasAccountField) {
-                console.log('No Contact or Account fields found in form - skipping auto-population');
+                console.log('SHSFORM: ','No Contact or Account fields found in form - skipping auto-population');
                 return;
             }
             
             // Fetch contact and account data
             const contactData = await getContactAndAccountData({ contactId: this.contactId });
-            console.log('Retrieved contact data:', contactData);
+            console.log('SHSFORM: ','Retrieved contact data:', contactData);
             
             // Wait for form to render
             await Promise.resolve();
@@ -1567,7 +1581,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 Promise.resolve().then(() => {
                     this.updateIndividualFieldStyling();
                 });
-                console.log('Auto-populated fields:', fieldsToPopulate);
+                console.log('SHSFORM: ','Auto-populated fields:', fieldsToPopulate);
             }
             
         } catch (error) {
