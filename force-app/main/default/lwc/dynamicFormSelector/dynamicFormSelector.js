@@ -5,6 +5,9 @@ import updateActiveForm from '@salesforce/apex/TestLWCConnection.updateActiveFor
 import TRANSCRIPTMC from "@salesforce/messageChannel/rocketphone__TRANSCRIPTMC__c";
 import { MessageContext, subscribe } from 'lightning/messageService';
 
+// Import DraftForm service methods
+import getAllDraftForms from '@salesforce/apex/DraftFormService.getAllDraftForms';
+
 export default class DynamicFormSelector extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
     context;
@@ -142,12 +145,12 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             
             return {
                 ...form,
-                isCompleted: form.progress === 100,
-                progressText: form.progress === 100 ? 'Completed' : `${form.progress}% Complete`,
-                progressTextClass: form.progress === 100 
+                isCompleted: form.status === 'Created' || form.progress === 100,
+                progressText: form.status === 'Created' ? 'Created' : (form.progress === 100 ? 'Completed' : `${form.progress}% Complete`),
+                progressTextClass: form.status === 'Created' 
                     ? 'slds-text-body_small progress-completed-text' 
                     : 'slds-text-body_small slds-text-color_weak',
-                label: `${form.objectName} / ${displayName}`,
+                label: `${form.objectName} / ${displayName}`
             };
         });
     }
@@ -205,9 +208,59 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         });
     }
 
-    // ========== SESSION STORAGE METHODS ==========
+    // ========== DRAFT FORM STORAGE METHODS ==========
     
-    loadDashboardForms() {
+    async loadDashboardForms() {
+        try {
+            // Call Apex to get all draft forms (shared access)
+            const draftForms = await getAllDraftForms();
+            
+            // Transform to existing dashboard format
+            const transformedForms = draftForms.map(draft => {
+                let formData = {};
+                try {
+                    formData = JSON.parse(draft.Form_Data_JSON__c || '{}');
+                } catch (parseError) {
+                    console.warn('Error parsing draft form data:', parseError);
+                    formData = {};
+                }
+                
+                return {
+                    id: draft.Form_ID__c,
+                    draftRecordId: draft.Id, // NEW: DraftForm__c record ID
+                    externalFormId: draft.External_Form_ID__c,
+                    sessionKey: `draft-${draft.Id}`, // Keep for compatibility
+                    objectName: formData.objectName || 'Unknown',
+                    formName: formData.formName || 'Untitled Form',
+                    progress: formData.progress || 0,
+                    status: draft.Status__c || 'Draft', // NEW: Status field
+                    createdRecordId: draft.Created_Record_ID__c, // NEW: Created record ID for updates
+                    recordId: draft.Source_Record_ID__c,
+                    lastModified: new Date(draft.LastModifiedDate).getTime(),
+                    creationTime: new Date(draft.CreatedDate).getTime(),
+                    createdBy: draft.CreatedBy?.Name || 'Unknown User', // NEW: Creator info
+                    createdDate: draft.CreatedDate, // NEW: Creation date
+                    fieldValues: formData.fieldValues || {},
+                    totalFields: formData.totalFields || 0
+                };
+            });
+            
+            // Sort by last modified (most recent first) for display
+            transformedForms.sort((a, b) => b.lastModified - a.lastModified);
+            
+            this.dashboardForms = transformedForms;
+            
+        } catch (error) {
+            console.error('Error loading draft forms:', error);
+            this.dashboardForms = [];
+            
+            // Fallback to sessionStorage if Apex fails
+            this.loadSessionStorageForms();
+        }
+    }
+    
+    // Fallback method for backward compatibility
+    loadSessionStorageForms() {
         try {
             const sessionForms = [];
             
@@ -230,7 +283,9 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                                 progress: sessionData.progressPercentage || 0,
                                 recordId: sessionData.recordId,
                                 lastModified: sessionData.timestamp || Date.now(),
-                                creationTime: sessionData.creationTime || sessionData.timestamp || Date.now(), // Use stored creation time
+                                creationTime: sessionData.creationTime || sessionData.timestamp || Date.now(),
+                                createdBy: 'Session Storage', // Placeholder for compatibility
+                                createdDate: new Date(sessionData.timestamp || Date.now()).toISOString(),
                                 fieldValues: sessionData.fieldValues || {},
                                 totalFields: sessionData.totalFields || 0
                             });
@@ -247,34 +302,72 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             this.dashboardForms = sessionForms;
             
         } catch (error) {
-            console.error('Error loading dashboard forms:', error);
+            console.error('Error loading session storage forms:', error);
             this.dashboardForms = [];
         }
     }
     
     handleEditForm(event) {
+        const draftRecordId = event.currentTarget.dataset.draftRecordId;
         const sessionKey = event.currentTarget.dataset.sessionKey;
-        const sessionData = this.getSessionData(sessionKey);
         
-        if (sessionData) {
-            const navigationState = {
-                c__formId: sessionData.formId,
-                c__externalFormId: sessionData.externalFormId || 'default', // Use existing external form ID
-                c__mode: 'edit' // Explicit mode flag for editing forms
-            };
+        if (draftRecordId && draftRecordId.startsWith('draft-')) {
+            // This is a DraftForm__c record - use new navigation
+            const actualDraftId = draftRecordId.replace('draft-', '');
             
-            // Include source record ID if available
-            if (sessionData.recordId) {
-                navigationState.c__recordId = sessionData.recordId;
+            // Find the form data from dashboardForms
+            const formData = this.dashboardForms.find(form => form.draftRecordId === actualDraftId);
+            
+            if (formData) {
+                const navigationState = {
+                    c__formId: formData.id,
+                    c__draftRecordId: actualDraftId, // NEW: Pass draft record ID
+                    c__mode: 'edit'
+                };
+                
+                // Include source record ID if available
+                if (formData.recordId) {
+                    navigationState.c__recordId = formData.recordId;
+                }
+                
+                // Include created record ID if this is a "Created" status draft (for updates)
+                if (formData.status === 'Created' && formData.createdRecordId) {
+                    navigationState.c__createdRecordId = formData.createdRecordId;
+                    navigationState.c__mode = 'update'; // Change mode to 'update'
+                }
+                
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__navItemPage',
+                    attributes: {
+                        apiName: 'RocketForm'
+                    },
+                    state: navigationState
+                });
             }
+        } else {
+            // Fallback to old sessionStorage logic
+            const sessionData = this.getSessionData(sessionKey);
             
-            this[NavigationMixin.Navigate]({
-                type: 'standard__navItemPage',
-                attributes: {
-                    apiName: 'RocketForm'
-                },
-                state: navigationState
-            });
+            if (sessionData) {
+                const navigationState = {
+                    c__formId: sessionData.formId,
+                    c__externalFormId: sessionData.externalFormId || 'default',
+                    c__mode: 'edit'
+                };
+                
+                // Include source record ID if available
+                if (sessionData.recordId) {
+                    navigationState.c__recordId = sessionData.recordId;
+                }
+                
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__navItemPage',
+                    attributes: {
+                        apiName: 'RocketForm'
+                    },
+                    state: navigationState
+                });
+            }
         }
     }
     

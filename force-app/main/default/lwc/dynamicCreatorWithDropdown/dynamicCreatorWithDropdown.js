@@ -13,6 +13,12 @@ import {loadStyle} from "lightning/platformResourceLoader";
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 import getContactAndAccountData from '@salesforce/apex/DynamicObjectService.getContactAndAccountData';
 
+// Import DraftForm service methods
+import saveDraftForm from '@salesforce/apex/DraftFormService.saveDraftForm';
+import getDraftById from '@salesforce/apex/DraftFormService.getDraftById';
+import deleteDraftForm from '@salesforce/apex/DraftFormService.deleteDraftForm';
+import updateDraftStatus from '@salesforce/apex/DraftFormService.updateDraftStatus';
+
 
 export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
@@ -48,6 +54,16 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     // Success modal
     @track showSuccessModal = false;
     @track createdRecordId;
+    
+    // Draft form functionality
+    @track showCancelModal = false;
+    @track showDeleteModal = false;
+    @track draftRecordId;
+    @track isEditingDraft = false;
+    @track draftExternalFormId; // Consistent external form ID for drafts
+    @track isUpdateMode = false; // True when updating an existing record
+    @track recordIdToUpdate; // ID of the record to update
+    @track modalContext = 'cancel'; // Track which button triggered the modal: 'cancel' or 'back'
     
     // Session storage for form persistence
     _saveDataTimeout;
@@ -438,7 +454,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
     // No animation methods needed - using simple image
 
-    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back and auto-population if Contact)
+    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back and auto-population if Contact, c__draftRecordId, c__createdRecordId)
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
@@ -447,12 +463,23 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const recordId = state.c__recordId || state.recordId || '';
             const externalFormId = state.c__externalFormId || '';
             const mode = state.c__mode || 'new';
+            const draftRecordId = state.c__draftRecordId || ''; // NEW: Draft record ID
+            const createdRecordId = state.c__createdRecordId || ''; // NEW: Created record ID for updates
             // Check if recordId is a Contact ID (starts with '003')
             const recordIdToCheck = state.c__recordId || state.recordId || '';
             const contactId = recordIdToCheck.startsWith('003') ? recordIdToCheck : null;
             
             
-            if (formId) {
+            if (draftRecordId) {
+                // Editing a saved draft
+                this.draftRecordId = draftRecordId;
+                this.isEditingDraft = true;
+                this.isUpdateMode = (mode === 'update' && createdRecordId); // NEW: Check if this is update mode
+                this.recordIdToUpdate = createdRecordId || null; // NEW: Store record ID to update
+                this.formPreselected = true;
+                this.resetFormState();
+                this.loadFormFromDraft();
+            } else if (formId) {
                 // If param-driven and changed, reload
                 if (formId !== this.selectedForm || externalFormId !== this.externalFormId || contactId !== this.contactId) {
                     this.formPreselected = true;
@@ -461,12 +488,20 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     this.contactId = contactId; // Store contact ID for auto-population
                     this.externalFormId = externalFormId || 'default';
                     this.isEditMode = (mode === 'edit');
+                    this.isEditingDraft = false; // Not editing a draft
+                    this.isUpdateMode = false; // NEW: Not in update mode
+                    this.draftRecordId = null;
+                    this.recordIdToUpdate = null; // NEW: No record to update
                     this.resetFormState();
                     this.loadObjectFieldsData();
                 }
             } else {
                 // No param: allow on-page selector
                 this.formPreselected = false;
+                this.isEditingDraft = false;
+                this.isUpdateMode = false; // NEW: Not in update mode
+                this.draftRecordId = null;
+                this.recordIdToUpdate = null; // NEW: No record to update
             }
         } catch (e) {
             console.error('Error reading URL params', e);
@@ -499,9 +534,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
-        // Note: Don't reset externalFormId, isEditMode, and contactId here as they come from URL params
+        // Note: Don't reset externalFormId, isEditMode, contactId, draftRecordId, isEditingDraft, draftExternalFormId, isUpdateMode, recordIdToUpdate here as they come from URL params
         this.showSuccessModal = false;
         this.createdRecordId = null;
+        this.showCancelModal = false;
+        this.showDeleteModal = false;
         // Removed _hasInitialStyleUpdate flag - no longer needed
     }
 
@@ -952,17 +989,118 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.completedSteps = new Set(this.completedSteps);
     }
 
-    handleSuccess(event) {
+    async handleSuccess(event) {
         const recordId = event.detail.id;
-        console.log(`${this.selectedObject} created: ${recordId}`);
         
         // Clear session data for this form
         this.clearFormData();
         
-        this.showToast('Success', `${this.selectedObject} record created successfully!`, 'success');
+        if (this.isUpdateMode) {
+            // Handle update success - update existing draft record with current form data
+            console.log(`${this.selectedObject} updated: ${recordId}`);
+            await this.updateDraftWithCurrentFormData();
+            this.showToast('Success', `${this.selectedObject} record updated successfully!`, 'success');
+        } else {
+            // Handle create success
+            console.log(`${this.selectedObject} created: ${recordId}`);
+            
+            if (this.isEditingDraft && this.draftRecordId) {
+                // Update existing draft status to 'Created' and store record ID
+                await this.updateDraftStatusToCreated(recordId);
+            } else {
+                // Create new draft record for reference (even if user didn't explicitly save draft)
+                await this.createDraftForReference(recordId);
+            }
+            
+            this.showToast('Success', `${this.selectedObject} record created successfully!`, 'success');
+        }
         
         // Return to form selection for a clear post-success UX
-        this.handleCancel();
+        this.handleCancelConfirmed(); // Use confirmed method to skip modal
+    }
+
+    async updateDraftStatusToCreated(createdRecordId) {
+        try {
+            if (this.draftRecordId) {
+                await updateDraftStatus({ 
+                    draftId: this.draftRecordId, 
+                    createdRecordId: createdRecordId 
+                });
+                console.log('Successfully updated draft status to Created:', this.draftRecordId);
+            }
+        } catch (error) {
+            console.warn('Error updating draft status:', error);
+            // Don't block success flow for status update failure
+        }
+    }
+
+    async createDraftForReference(createdRecordId) {
+        try {
+            // Create draft record for reference even if user didn't explicitly save draft
+            const formData = {
+                externalFormId: this.generateUniqueFormId(), // Generate unique ID for this reference draft
+                formId: this.selectedForm,
+                sourceRecordId: this.sourceRecordId,
+                formName: this.selectedFormName,
+                objectName: this.selectedObject,
+                fieldValues: this.extractFieldValues(),
+                filledFields: Array.from(this.filledFields),
+                progress: this.progressValue, // Use actual calculated progress percentage
+                totalFields: this.fieldsArray.length,
+                recordTypeId: this.recordTypeId,
+                isEditMode: this.isEditMode,
+                contactId: this.contactId,
+                timestamp: Date.now(),
+                status: 'Created', // Set status directly to Created
+                createdRecordId: createdRecordId // Store the created record ID
+            };
+
+            // Save to DraftForm__c as reference
+            const draftId = await saveDraftForm({ formDataJson: JSON.stringify(formData) });
+            
+            // Update the draft status to Created and store record ID
+            await updateDraftStatus({ 
+                draftId: draftId, 
+                createdRecordId: createdRecordId 
+            });
+
+            console.log('Successfully created reference draft for record:', createdRecordId);
+
+        } catch (error) {
+            console.warn('Error creating reference draft:', error);
+            // Don't block success flow for draft creation failure
+        }
+    }
+
+    async updateDraftWithCurrentFormData() {
+        try {
+            if (this.isEditingDraft && this.draftRecordId) {
+                // Extract current form data to update the draft record
+                const formData = {
+                    externalFormId: this.draftExternalFormId,
+                    formId: this.selectedForm,
+                    sourceRecordId: this.sourceRecordId,
+                    formName: this.selectedFormName,
+                    objectName: this.selectedObject,
+                    fieldValues: this.extractFieldValues(),
+                    filledFields: Array.from(this.filledFields),
+                    progress: this.progressValue,
+                    totalFields: this.fieldsArray.length,
+                    recordTypeId: this.recordTypeId,
+                    isEditMode: this.isEditMode,
+                    contactId: this.contactId,
+                    timestamp: Date.now()
+                };
+
+                // Update existing draft record with current form data
+                await saveDraftForm({ formDataJson: JSON.stringify(formData) });
+                
+                console.log('Successfully updated draft with current form data:', this.draftRecordId);
+            }
+        } catch (error) {
+            console.warn('Error updating draft with current form data:', error);
+            // Don't block success flow for draft update failure
+        }
     }
 
     handleError(event) {
@@ -972,13 +1110,201 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
 
     handleCancel() {
+        // Show confirmation modal instead of immediate cancel
+        this.modalContext = 'cancel';
+        this.showCancelModal = true;
+    }
+
+    handleCancelConfirmed() {
+        // User confirmed cancel - proceed with existing cancel logic
+        this.showCancelModal = false;
         // Clear the session data for this form when canceling
         this.clearFormData();
         this.navigateBack();
     }
 
+    handleCancelDismissed() {
+        // User dismissed modal - stay on form
+        this.showCancelModal = false;
+    }
+
+    async handleDraftForm() {
+        try {
+            if (!this.selectedForm || !this.selectedObject) {
+                this.showToast('Error', 'Please select a form first', 'error');
+                return;
+            }
+
+            // Extract current form data (reuse existing logic)
+            const formData = {
+                externalFormId: this.draftExternalFormId || this.generateDraftExternalFormId(),
+                formId: this.selectedForm,
+                sourceRecordId: this.sourceRecordId,
+                formName: this.selectedFormName,
+                objectName: this.selectedObject,
+                fieldValues: this.extractFieldValues(),
+                filledFields: Array.from(this.filledFields),
+                progress: this.progressValue,
+                totalFields: this.fieldsArray.length,
+                recordTypeId: this.recordTypeId,
+                isEditMode: this.isEditMode,
+                contactId: this.contactId,
+                timestamp: Date.now()
+            };
+
+            // Save to DraftForm__c
+            const draftId = await saveDraftForm({ formDataJson: JSON.stringify(formData) });
+            
+            // Show success message based on whether this was an update or new save
+            const isNewDraft = !this.isEditingDraft;
+            const message = isNewDraft ? 'Draft saved successfully!' : 'Draft updated successfully!';
+            
+            // Update current state if this is a new draft
+            if (isNewDraft) {
+                this.draftRecordId = draftId;
+                this.isEditingDraft = true;
+            }
+
+            this.showToast('Success', message, 'success');
+
+        } catch (error) {
+            console.error('Error saving draft:', error);
+            this.showToast('Error', 'Failed to save draft: ' + this.getErrorMessage(error), 'error');
+        }
+    }
+
+    async loadFormFromDraft() {
+        try {
+            if (!this.draftRecordId) {
+                console.error('No draft record ID provided');
+                return;
+            }
+
+            // Get draft from DraftForm__c
+            const draftRecord = await getDraftById({ draftId: this.draftRecordId });
+            if (!draftRecord || !draftRecord.Form_Data_JSON__c) {
+                throw new Error('Draft data not found');
+            }
+
+            const formData = JSON.parse(draftRecord.Form_Data_JSON__c);
+            
+            // Set form properties
+            this.selectedForm = draftRecord.Form_ID__c;
+            this.sourceRecordId = draftRecord.Source_Record_ID__c;
+            this.externalFormId = formData.externalFormId || 'default';
+            this.draftExternalFormId = formData.externalFormId; // Store the external form ID for consistency
+            this.contactId = formData.contactId;
+            this.isEditMode = formData.isEditMode || false;
+
+            // Load form structure first
+            await this.loadObjectFieldsData();
+            
+            // Then populate with draft data
+            if (formData.fieldValues) {
+                // Restore filled fields from draft
+                this.filledFields = new Set(formData.filledFields || []);
+                
+                // Wait for form to render then populate fields
+                await Promise.resolve();
+                this.populateFieldsFromDraftData(formData);
+            }
+
+        } catch (error) {
+            console.error('Error loading draft:', error);
+            this.showToast('Error', 'Failed to load draft: ' + this.getErrorMessage(error), 'error');
+            // Navigate back to form selector on error
+            this.navigateBack();
+        }
+    }
+
+    populateFieldsFromDraftData(formData) {
+        try {
+            const inputFields = this.template.querySelectorAll('lightning-input-field');
+            const fieldValues = formData.fieldValues || {};
+            
+            inputFields.forEach(field => {
+                // Check if field exists in saved values
+                if (field.fieldName in fieldValues) {
+                    const value = fieldValues[field.fieldName];
+                    field.value = value;
+                }
+            });
+            
+            // Update step progress
+            this.updateStepProgress();
+            
+            // Update field styling for restored values
+            Promise.resolve().then(() => {
+                this.updateIndividualFieldStyling();
+            });
+            
+            console.log('Successfully loaded draft form data');
+            
+        } catch (error) {
+            console.error('Error populating fields from draft:', error);
+        }
+    }
+
+    generateUniqueFormId() {
+        return 'form_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    generateDraftExternalFormId() {
+        if (!this.draftExternalFormId) {
+            // Create unique external form ID based on form template + timestamp
+            this.draftExternalFormId = `draft_${this.selectedForm}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+        return this.draftExternalFormId;
+    }
+
+    handleDeleteDraft() {
+        if (!this.isEditingDraft || !this.draftRecordId) {
+            this.showToast('Error', 'No draft to delete', 'error');
+            return;
+        }
+
+        // Show delete confirmation modal
+        this.showDeleteModal = true;
+    }
+
+    async handleDeleteConfirmed() {
+        try {
+            // Close modal first
+            this.showDeleteModal = false;
+
+            // Delete the draft record
+            await deleteDraftForm({ draftId: this.draftRecordId });
+            
+            // Clear draft-related state
+            this.isEditingDraft = false;
+            this.draftRecordId = null;
+            this.draftExternalFormId = null;
+            
+            // Clear form data
+            this.clearFormData();
+            
+            // Show success message
+            this.showToast('Success', 'Draft deleted successfully', 'success');
+            
+            // Navigate back to form selector
+            this.navigateBack();
+            
+        } catch (error) {
+            console.error('Error deleting draft:', error);
+            this.showToast('Error', 'Failed to delete draft: ' + this.getErrorMessage(error), 'error');
+        }
+    }
+
+    handleDeleteDismissed() {
+        // User dismissed modal - stay on form
+        this.showDeleteModal = false;
+    }
+
+
     handleGoBack() {
-        this.navigateBack();
+        // Show the same confirmation modal as Cancel button but with Back context
+        this.modalContext = 'back';
+        this.showCancelModal = true;
     }
 
     navigateBack() {
@@ -1027,8 +1353,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return this.sectionSteps && this.sectionSteps.length > 0;
     }
 
-    // Dynamic create button label
+    // Dynamic create/update button label
     get createButtonLabel() {
+        if (this.isUpdateMode) {
+            return this.selectedObject ? `Update ${this.selectedObject}` : 'Update Record';
+        }
         return this.selectedObject ? `Create ${this.selectedObject}` : 'Create Record';
     }
 
@@ -1297,6 +1626,35 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return null;
         }
         return this.recordTypeId;
+    }
+
+    // Getter to control delete button visibility - only show when editing draft but not in update mode
+    get showDeleteButton() {
+        return this.isEditingDraft && !this.isUpdateMode;
+    }
+
+    // Getter to control draft button visibility - hide when in update mode
+    get showDraftButton() {
+        // Show draft button when we have a selected form and not in update mode
+        return this.selectedForm && !this.isUpdateMode;
+    }
+
+    // Dynamic modal text based on context
+    get modalTitle() {
+        return this.modalContext === 'back' ? 'Confirm Back' : 'Confirm Cancel';
+    }
+
+    get modalMessage() {
+        const action = this.modalContext === 'back' ? 'go back' : 'cancel';
+        return `Are you sure you want to ${action}? Any unsaved changes will be lost.`;
+    }
+
+    get modalKeepButtonLabel() {
+        return this.modalContext === 'back' ? 'No, Stay Here' : 'No, Keep Editing';
+    }
+
+    get modalConfirmButtonLabel() {
+        return this.modalContext === 'back' ? 'Yes, Go Back' : 'Yes, Cancel';
     }
 
 }
