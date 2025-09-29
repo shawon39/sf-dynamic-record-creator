@@ -52,8 +52,8 @@
                             <!-- Fields in this section -->
                             <div class="slds-grid slds-gutters slds-wrap">
                                 <template for:each={section.fields} for:item="field">
-                                    <div key={field.fieldName} class="slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small">
-                                        <div class="slds-box slds-box_x-small">
+                                    <div key={field.fieldName} class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-var-m-bottom_x-small">
+                                        <div class="slds-box slds-box_x-small custom-field-box">
                                             <div class="slds-text-body_small">
                                                 <strong>{field.fieldLabel}</strong> ({field.fieldType})
                                                 <template if:true={field.isRequired}>

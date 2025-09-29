@@ -64,3 +64,20 @@ lightning-dual-listbox {
     --slds-c-card-radius-border: 0.6rem;
     border-radius: 0.6rem !important;
 }
+
+/* Field box styling for better visual distinction using SLDS design tokens */
+.custom-field-box {
+    --slds-c-card-color-background: var(--slds-g-color-neutral-base-100);
+    --slds-c-card-color-border: var(--slds-g-color-border-base-4);
+    --slds-c-card-radius-border: 0.5rem;
+    --slds-c-card-sizing-border: var(--slds-g-sizing-border-1);
+    background-color: var(--slds-c-card-color-background);
+    border: var(--slds-c-card-sizing-border) solid var(--slds-c-card-color-border);
+    border-radius: var(--slds-c-card-radius-border);
+    transition: background-color 0.2s ease;
+}
+
+.custom-field-box:hover {
+    --slds-c-card-color-background: var(--slds-g-color-neutral-base-95);
+    background-color: var(--slds-c-card-color-background);
+}
