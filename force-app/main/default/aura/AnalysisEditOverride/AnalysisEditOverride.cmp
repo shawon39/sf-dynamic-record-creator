@@ -1,0 +1,6 @@
+<aura:component implements="lightning:actionOverride,force:hasRecordId" access="global">
+    <!-- Pass the recordId to the LWC wizard in edit mode -->
+    <c:fieldAnalysisContainer 
+        analysisId="{!v.recordId}" 
+        mode="edit" />
+</aura:component>

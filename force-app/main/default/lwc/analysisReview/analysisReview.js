@@ -1,9 +1,13 @@
 import { LightningElement, api, track } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import createCompleteAnalysisWithJSON from '@salesforce/apex/AnalysisService.createCompleteAnalysisWithJSON';
+import updateCompleteAnalysisWithJSON from '@salesforce/apex/AnalysisService.updateCompleteAnalysisWithJSON';
 import analyzeFieldsAndGenerateJSONReport from '@salesforce/apex/FieldService.analyzeFieldsAndGenerateJSONReport';
 
-export default class AnalysisReview extends LightningElement {
+export default class AnalysisReview extends NavigationMixin(LightningElement) {
     @api analysisData;
+    @api analysisId; // For edit mode - ID of the analysis being edited
+    @api isEditMode = false; // Flag to indicate edit mode
     
     @track isSaving = false;
     @track isAnalyzing = true; // Start with analysis
@@ -124,7 +128,10 @@ export default class AnalysisReview extends LightningElement {
     }
     
     get saveButtonLabel() {
-        return this.isSaving ? 'Saving Analysis Configuration...' : 'Save Analysis Configuration';
+        if (this.isSaving) {
+            return this.isEditMode ? 'Updating Analysis Configuration...' : 'Saving Analysis Configuration...';
+        }
+        return this.isEditMode ? 'Update Analysis Configuration' : 'Save Analysis Configuration';
     }
     
     get saveButtonIcon() {
@@ -152,30 +159,63 @@ export default class AnalysisReview extends LightningElement {
                 fields: section.selectedFields || []
             }));
             
-            // Call Apex method to create complete analysis with JSON format
-            const analysisId = await createCompleteAnalysisWithJSON({
-                objectName: this.selectedObject,
-                recordTypeName: this.selectedRecordTypeName,
-                recordTypeId: this.analysisData.selectedRecordType || '',
-                selectedFields: this.selectedFields,
-                sections: sectionsData,
-                formName: this.analysisData.formName || null
-            });
+            let analysisId;
+            let message;
             
-            const message = this.hasSections 
-                ? `Analysis configuration with ${this.sectionsCount} section(s) saved successfully!`
-                : `Analysis configuration saved successfully!`;
+            if (this.isEditMode && this.analysisId) {
+                // Update existing analysis
+                analysisId = await updateCompleteAnalysisWithJSON({
+                    analysisId: this.analysisId,
+                    objectName: this.selectedObject,
+                    recordTypeName: this.selectedRecordTypeName,
+                    recordTypeId: this.analysisData.selectedRecordType || '',
+                    selectedFields: this.selectedFields,
+                    sections: sectionsData,
+                    formName: this.analysisData.formName || null
+                });
+                
+                message = this.hasSections 
+                    ? `Analysis configuration with ${this.sectionsCount} section(s) updated successfully!`
+                    : `Analysis configuration updated successfully!`;
+            } else {
+                // Create new analysis
+                analysisId = await createCompleteAnalysisWithJSON({
+                    objectName: this.selectedObject,
+                    recordTypeName: this.selectedRecordTypeName,
+                    recordTypeId: this.analysisData.selectedRecordType || '',
+                    selectedFields: this.selectedFields,
+                    sections: sectionsData,
+                    formName: this.analysisData.formName || null
+                });
+                
+                message = this.hasSections 
+                    ? `Analysis configuration with ${this.sectionsCount} section(s) saved successfully!`
+                    : `Analysis configuration saved successfully!`;
+            }
             
             // Reset saving state immediately on success
             this.isSaving = false;
             
-            // Dispatch success event
-            this.dispatchEvent(new CustomEvent('analysissaved', {
-                detail: {
-                    message: message,
-                    analysisId: analysisId
-                }
-            }));
+            // Handle post-save navigation
+            if (this.isEditMode && this.analysisId) {
+                // Navigate back to the record in edit mode
+                this[NavigationMixin.Navigate]({
+                    type: 'standard__recordPage',
+                    attributes: {
+                        recordId: this.analysisId,
+                        objectApiName: 'Dynamic_Field_Analysis__c',
+                        actionName: 'view'
+                    }
+                });
+            } else {
+                // Dispatch success event for new records (existing behavior)
+                this.dispatchEvent(new CustomEvent('analysissaved', {
+                    detail: {
+                        message: message,
+                        analysisId: analysisId
+                    }
+                }));
+            }
             
         } catch (error) {
             console.error('Error saving analysis:', error);

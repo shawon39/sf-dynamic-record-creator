@@ -51,7 +51,7 @@ export default class SectionBuilder extends LightningElement {
                 selectedFields: section.fields || [],
                 fieldsList: (section.fields || []).join(', '),
                 isEditing: false
-            }));
+            })).sort((a, b) => a.sectionOrder - b.sectionOrder);
             
             // Update allocated fields
             this.allocatedFields = [];
@@ -153,7 +153,8 @@ export default class SectionBuilder extends LightningElement {
             isEditing: false
         };
         
-        this.sections = [...this.sections, newSection];
+        // Add section and sort by sectionOrder to maintain proper order
+        this.sections = [...this.sections, newSection].sort((a, b) => a.sectionOrder - b.sectionOrder);
         this.currentSection = null;
     }
     

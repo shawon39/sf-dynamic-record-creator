@@ -78,7 +78,110 @@ public with sharing class AnalysisService {
         return createCompleteAnalysisWithJSON(objectName, recordTypeName, recordTypeId, selectedFields, instructions, formName);
     }
     
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
+    public static String updateCompleteAnalysisWithJSON(String analysisId, String objectName, String recordTypeName, String recordTypeId,
+                                              List<String> selectedFields, List<InstructionData> sections, String formName) {
+        Savepoint sp = Database.setSavepoint();
+        
+        try {
+            Console.log('AnalysisService.updateCompleteAnalysisWithJSON: Updating analysis ' + analysisId + ' with ' + selectedFields.size() + ' fields for ' + objectName);
+            
+            // Validate input parameters
+            if (String.isBlank(analysisId)) {
+                throw new IllegalArgumentException('Analysis ID cannot be blank');
+            }
+            
+            if (String.isBlank(objectName)) {
+                throw new IllegalArgumentException('Object name cannot be blank');
+            }
+            
+            if (selectedFields == null || selectedFields.isEmpty()) {
+                throw new IllegalArgumentException('Selected fields cannot be empty');
+            }
+            
+            // Check CRUD permissions
+            if (!Schema.sObjectType.Dynamic_Field_Analysis__c.isUpdateable()) {
+                throw new AuraHandledException('No permission to update Dynamic Field Analysis records');
+            }
+            
+            if (sections != null && !sections.isEmpty()) {
+                if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isDeletable()) {
+                    throw new AuraHandledException('No permission to delete Dynamic Field Instructions records');
+                }
+                if (!Schema.sObjectType.Dynamic_Field_Instructions__c.isCreateable()) {
+                    throw new AuraHandledException('No permission to create Dynamic Field Instructions records');
+                }
+            }
+            
+            // Verify the analysis record exists and get it
+            List<Dynamic_Field_Analysis__c> existingRecords = [
+                SELECT Id, Name, Object_Name__c 
+                FROM Dynamic_Field_Analysis__c 
+                WHERE Id = :analysisId 
+                LIMIT 1
+            ];
+            
+            if (existingRecords.isEmpty()) {
+                throw new AuraHandledException('Analysis record not found');
+            }
+            
+            // Generate field analysis with JSON format
+            FieldService.FieldAnalysisResult analysisResult = FieldService.analyzeFieldsAndGenerateJSONReport(
+                objectName, recordTypeName, recordTypeId, selectedFields, sections);
+            
+            // Update parent record with new JSON analysis details
+            Dynamic_Field_Analysis__c analysisRecord = existingRecords[0];
+            analysisRecord.Name = String.isNotBlank(formName) ? formName.trim() : objectName + ' Form - ' + DateTime.now().format('yyyy-MM-dd HH:mm');
+            analysisRecord.Object_Name__c = objectName;
+            analysisRecord.Record_Type_Name__c = recordTypeName;
+            analysisRecord.Record_Type_Id__c = recordTypeId;
+            analysisRecord.Selected_Fields__c = String.join(selectedFields, ', ');
+            analysisRecord.Field_Analysis_Details__c = analysisResult.analysisReport; // JSON format
+            analysisRecord.Analysis_Date__c = DateTime.now();
+            analysisRecord.Total_Fields_Count__c = selectedFields.size();
+            
+            update analysisRecord;
+            
+            // Replace child instruction records (sections)
+            // First, delete existing instructions
+            List<Dynamic_Field_Instructions__c> existingInstructions = [
+                SELECT Id 
+                FROM Dynamic_Field_Instructions__c 
+                WHERE Field_Analysis__c = :analysisId
+            ];
+            
+            if (!existingInstructions.isEmpty()) {
+                delete existingInstructions;
+            }
+            
+            // Then, create new instructions from sections
+            if (sections != null && !sections.isEmpty()) {
+                List<Dynamic_Field_Instructions__c> instructionRecords = new List<Dynamic_Field_Instructions__c>();
+                
+                for (InstructionData section : sections) {
+                    Dynamic_Field_Instructions__c instructionRecord = createInstructionRecord(section, analysisRecord.Id);
+                    if (instructionRecord != null) {
+                        instructionRecords.add(instructionRecord);
+                    }
+                }
+                
+                if (!instructionRecords.isEmpty()) {
+                    insert instructionRecords;
+                }
+            }
+            
+            Console.log('Successfully updated analysis: ' + analysisId);
+            return analysisRecord.Id;
+            
+        } catch (Exception e) {
+            Database.rollback(sp);
+            Console.log('ERROR: Transaction rolled back - ' + e.getMessage());
+            Console.log('Error stack trace: ' + e.getStackTraceString());
+            throw new AuraHandledException('Failed to update complete analysis with JSON: ' + e.getMessage());
+        }
+    }
+    
+    @AuraEnabled(cacheable=false)
     public static Dynamic_Field_Analysis__c getAnalysisById(String analysisId) {
         try {
             if (String.isBlank(analysisId)) {
@@ -90,7 +193,7 @@ public with sharing class AnalysisService {
             }
             
             List<Dynamic_Field_Analysis__c> records = [
-                SELECT Id, Object_Name__c, Record_Type_Name__c, Record_Type_Id__c,
+                SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Record_Type_Id__c,
                        Selected_Fields__c, Field_Analysis_Details__c, Analysis_Date__c,
                        Total_Fields_Count__c
                 FROM Dynamic_Field_Analysis__c

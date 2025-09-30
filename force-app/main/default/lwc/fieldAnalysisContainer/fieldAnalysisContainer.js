@@ -1,9 +1,16 @@
-import { LightningElement, track } from 'lwc';
+import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import getAnalysisById from '@salesforce/apex/AnalysisService.getAnalysisById';
+import getInstructionsForAnalysis from '@salesforce/apex/InstructionManagerService.getInstructionsForAnalysis';
 
 export default class FieldAnalysisContainer extends LightningElement {
+    @api analysisId; // For edit mode - ID of the analysis to edit
+    @api mode; // 'edit' or 'new' (default)
+    
     @track currentStep = 'step1';
     @track analysisData = {};
+    @track isEditMode = false;
+    @track isLoading = false;
     
     // Step computed properties
     get isStep1() { return this.currentStep === 'step1'; }
@@ -20,6 +27,50 @@ export default class FieldAnalysisContainer extends LightningElement {
         }
     }
     
+    async connectedCallback() {
+        // Check if we're in edit mode and load existing data
+        if (this.mode === 'edit' && this.analysisId) {
+            this.isEditMode = true;
+            await this.loadExistingAnalysis();
+        }
+    }
+    
+    async loadExistingAnalysis() {
+        this.isLoading = true;
+        
+        try {
+            // Load the parent analysis record
+            const analysisRecord = await getAnalysisById({ analysisId: this.analysisId });
+            
+            // Load the child instruction records (sections)
+            const instructionsData = await getInstructionsForAnalysis({ analysisId: this.analysisId });
+            
+            // Build analysisData from loaded records
+            this.analysisData = {
+                selectedObject: analysisRecord.Object_Name__c,
+                selectedRecordType: analysisRecord.Record_Type_Id__c,
+                selectedRecordTypeName: analysisRecord.Record_Type_Name__c || 'Master',
+                formName: analysisRecord.Name,
+                allSelectedFields: analysisRecord.Selected_Fields__c ? 
+                    analysisRecord.Selected_Fields__c.split(',').map(field => field.trim()) : [],
+                sections: instructionsData.instructions ? instructionsData.instructions.map(instruction => ({
+                    stepNumber: instruction.stepNumber,
+                    text: instruction.text,
+                    fields: instruction.fields || []
+                })) : []
+            };
+            
+            // Start at step 1 (object selection) for edit mode so user can see all prefilled data
+            this.currentStep = 'step1';
+            
+        } catch (error) {
+            console.error('Error loading existing analysis:', error);
+            this.showToast('Error', 'Failed to load analysis for editing: ' + (error.body?.message || error.message), 'error');
+            // Stay on step 1 if loading fails
+        } finally {
+            this.isLoading = false;
+        }
+    }
     
     // Event handlers for step navigation
     handleObjectSelected(event) {

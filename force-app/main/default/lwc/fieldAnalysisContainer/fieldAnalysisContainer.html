@@ -1,17 +1,27 @@
 <template>
-    <lightning-card title="Dynamic Field Analysis Wizard" icon-name="standard:process">
-        <!-- Progress Indicator -->
-        <div class="slds-var-p-horizontal_large slds-var-p-top_large slds-var-p-bottom_medium">
-            <div class="slds-var-m-bottom_large">
-                <lightning-progress-indicator current-step={currentStepNumber} type="path" variant="base">
-                    <lightning-progress-step label="Object Selection" value="1"></lightning-progress-step>
-                    <lightning-progress-step label="Create Sections" value="2"></lightning-progress-step>
-                    <lightning-progress-step label="Review & Save" value="3"></lightning-progress-step>
-                </lightning-progress-indicator>
+    <lightning-card title="RocketForm Builder" icon-name="standard:process">
+        <!-- Loading Spinner -->
+        <template if:true={isLoading}>
+            <div class="slds-var-p-around_large slds-text-align_center">
+                <lightning-spinner alternative-text="Loading analysis data..." size="large"></lightning-spinner>
+                <p class="slds-var-m-top_small">Loading analysis data...</p>
             </div>
-            
-            <!-- Step Content -->
-            <div class="slds-var-p-horizontal_medium">
+        </template>
+        
+        <!-- Main Content -->
+        <template if:false={isLoading}>
+            <!-- Progress Indicator -->
+            <div class="slds-var-p-horizontal_large slds-var-p-top_large slds-var-p-bottom_medium">
+                <div class="slds-var-m-bottom_large">
+                    <lightning-progress-indicator current-step={currentStepNumber} type="path" variant="base">
+                        <lightning-progress-step label="Object Selection" value="1"></lightning-progress-step>
+                        <lightning-progress-step label="Create Sections" value="2"></lightning-progress-step>
+                        <lightning-progress-step label="Review & Save" value="3"></lightning-progress-step>
+                    </lightning-progress-indicator>
+                </div>
+                
+                <!-- Step Content -->
+                <div class="slds-var-p-horizontal_medium">
                 <!-- Step 1: Object Selection -->
                 <template if:true={isStep1}>
                     <c-object-selector 
@@ -42,13 +52,16 @@
                 <template if:true={isStep3}>
                     <c-analysis-review 
                         analysis-data={analysisData}
+                        analysis-id={analysisId}
+                        is-edit-mode={isEditMode}
                         onanalysissaved={handleAnalysisSaved}
                         ongoback={handleGoBack}
                         onstartover={handleStartOver}
                         onerror={handleError}>
                     </c-analysis-review>
                 </template>
+                </div>
             </div>
-        </div>
+        </template>
     </lightning-card>
 </template>
