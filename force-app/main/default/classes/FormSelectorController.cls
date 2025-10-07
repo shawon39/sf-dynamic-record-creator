@@ -14,21 +14,22 @@ public with sharing class FormSelectorController {
         }
     }
 
+    // Retrieves all active form configurations with display labels for form selection UI
     @AuraEnabled(cacheable=true)
     public static List<FormBadge> getForms() {
         try {
-            // Build SOQL for user-mode query - returns ALL active forms
+            // Query active form configurations in user mode for FLS enforcement
             String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Field_Analysis_Details__c ' +
                           'FROM Dynamic_Field_Analysis__c ' +
                           'WHERE Name != null AND Object_Name__c != null AND IsActive__c = true ' +
                           'ORDER BY Name';
 
-            // Execute in USER_MODE to honor FLS + sharing without WITH SECURITY_ENFORCED
             List<SObject> rows = Database.query(soql);
             List<FormBadge> out = new List<FormBadge>();
 
             for (SObject sob : rows) {
                 Dynamic_Field_Analysis__c rec = (Dynamic_Field_Analysis__c)sob;
+                // Build subtitle with object name and record type (if not Master)
                 String subtitle = rec.Object_Name__c;
                 if (String.isNotBlank(rec.Record_Type_Name__c) && rec.Record_Type_Name__c != 'Master') {
                     subtitle += ' • ' + rec.Record_Type_Name__c;
@@ -38,8 +39,6 @@ public with sharing class FormSelectorController {
 
             return out;
         } catch (Exception e) {
-            Console.log('Error in FormSelectorController.getForms: ' + e.getMessage());
-            Console.log('Stack: ' + e.getStackTraceString());
             throw new AuraHandledException('Failed to load forms: ' + e.getMessage());
         }
     }

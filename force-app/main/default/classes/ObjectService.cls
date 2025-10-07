@@ -24,19 +24,18 @@ public with sharing class ObjectService {
         }
     }
     
+    // Returns all createable Salesforce objects available to the user
     @AuraEnabled(cacheable=true)
     public static List<ObjectOption> getAllSalesforceObjects() {
         List<ObjectOption> objectOptions = new List<ObjectOption>();
         
         try {
-            Console.log('ObjectService.getAllSalesforceObjects: Starting to retrieve objects');
             Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-            Console.log('ObjectService.getAllSalesforceObjects: Found ' + globalDescribe.size() + ' total objects');
             
             for (String objectName : globalDescribe.keySet()) {
                 Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(objectName).getDescribe();
                 
-                // Only include objects that are accessible, createable, and not deprecated
+                // Only include accessible, createable, non-deprecated objects
                 if (objectDescribe.isAccessible() && 
                     objectDescribe.isCreateable() && 
                     !objectDescribe.isDeprecatedAndHidden()) {
@@ -45,27 +44,22 @@ public with sharing class ObjectService {
                 }
             }
             
-            // Sort objects alphabetically by label for predictable picklist order
+            // Sort alphabetically by label for better UX
             objectOptions.sort(new ObjectOptionComparator());
             
-            Console.log('ObjectService.getAllSalesforceObjects: Returning ' + objectOptions.size() + ' accessible objects');
-            
         } catch (Exception e) {
-            Console.log('Error in ObjectService.getAllSalesforceObjects: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
             throw new AuraHandledException('Failed to retrieve Salesforce objects: ' + e.getMessage());
         }
         
         return objectOptions;
     }
     
+    // Returns all available record types for a specific object
     @AuraEnabled(cacheable=true)
     public static List<RecordTypeOption> getObjectRecordTypes(String objectName) {
         List<RecordTypeOption> recordTypeOptions = new List<RecordTypeOption>();
         
         try {
-            Console.log('ObjectService.getObjectRecordTypes: Starting for object ' + objectName);
-            
             if (String.isBlank(objectName)) {
                 throw new IllegalArgumentException('Object name cannot be blank');
             }
@@ -79,11 +73,12 @@ public with sharing class ObjectService {
             List<Schema.RecordTypeInfo> recordTypes = objectDescribe.getRecordTypeInfos();
             
             for (Schema.RecordTypeInfo recordType : recordTypes) {
+                // Only include available and active record types
                 if (recordType.isAvailable() && recordType.isActive()) {
                     recordTypeOptions.add(new RecordTypeOption(
                         recordType.getName(),
                         recordType.getRecordTypeId(),
-                        '', // Description not available from RecordTypeInfo
+                        '',
                         recordType.isDefaultRecordTypeMapping()
                     ));
                 }
@@ -92,71 +87,14 @@ public with sharing class ObjectService {
             // Sort with default record type first
             recordTypeOptions.sort(new RecordTypeComparator());
             
-            Console.log('ObjectService.getObjectRecordTypes: Found ' + recordTypeOptions.size() + ' record types');
-            
         } catch (Exception e) {
-            Console.log('Error in ObjectService.getObjectRecordTypes: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
             throw new AuraHandledException('Failed to retrieve record types: ' + e.getMessage());
         }
         
         return recordTypeOptions;
     }
     
-    @AuraEnabled(cacheable=true)
-    public static List<ObjectOption> getAllCreateableObjects() {
-        List<ObjectOption> opts = new List<ObjectOption>();
-        Set<String> uniqueObjects = new Set<String>();
-        
-        try {
-            Console.log('ObjectService.getAllCreateableObjects: Querying Dynamic_Field_Analysis__c records');
-            
-            // Check if user has access to Dynamic_Field_Analysis__c
-            if (!Schema.sObjectType.Dynamic_Field_Analysis__c.isAccessible()) {
-                throw new AuraHandledException('No access to Dynamic Field Analysis records');
-            }
-            
-            // Query all unique objects from Dynamic_Field_Analysis__c
-            List<Dynamic_Field_Analysis__c> analysisRecords = [
-                SELECT Object_Name__c 
-                FROM Dynamic_Field_Analysis__c 
-                WHERE Object_Name__c != null 
-                ORDER BY Object_Name__c
-            ];
-            
-            Console.log('ObjectService.getAllCreateableObjects: Found ' + analysisRecords.size() + ' analysis records');
-            
-            Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-            
-            for (Dynamic_Field_Analysis__c record : analysisRecords) {
-                String objectName = record.Object_Name__c;
-                
-                if (!uniqueObjects.contains(objectName)) {
-                    // Check if object still exists and is createable
-                    Schema.SObjectType objectType = globalDescribe.get(objectName);
-                    if (objectType != null) {
-                        Schema.DescribeSObjectResult dr = objectType.getDescribe();
-                        if (dr.isCreateable() && dr.isAccessible()) {
-                            opts.add(new ObjectOption(dr.getLabel(), dr.getName()));
-                            uniqueObjects.add(objectName);
-                            Console.log('ObjectService.getAllCreateableObjects: Added object: ' + objectName);
-                        }
-                    }
-                }
-            }
-            
-            Console.log('ObjectService.getAllCreateableObjects: Returning ' + opts.size() + ' unique objects');
-            
-        } catch (Exception e) {
-            Console.log('Error in ObjectService.getAllCreateableObjects: ' + e.getMessage());
-            Console.log('Error stack trace: ' + e.getStackTraceString());
-            throw new AuraHandledException('Failed to retrieve objects: ' + e.getMessage());
-        }
-        
-        return opts;
-    }
-    
-    // Comparator to sort record types with default first
+    // Comparator to sort record types with default record type appearing first
     public class RecordTypeComparator implements Comparator<RecordTypeOption> {
         public Integer compare(RecordTypeOption rt1, RecordTypeOption rt2) {
             if (rt1.isDefault && !rt2.isDefault) {
@@ -169,7 +107,7 @@ public with sharing class ObjectService {
         }
     }
 
-    // Comparator to sort object options by label (case-insensitive)
+    // Comparator to sort object options alphabetically (case-insensitive)
     public class ObjectOptionComparator implements Comparator<ObjectOption> {
         public Integer compare(ObjectOption a, ObjectOption b) {
             if (a == null && b == null) return 0;

@@ -1,20 +1,11 @@
-/**
- * Service class for managing DraftForm__c records
- * Provides shared access - all users can see and edit all draft forms
- */
 public with sharing class DraftFormService {
     
-    /**
-     * Save form data as a draft
-     * @param formDataJson JSON string containing form data and metadata
-     * @return String - ID of created/updated DraftForm__c record
-     */
+    // Saves or updates a draft form with user-entered data
     @AuraEnabled
     public static String saveDraftForm(String formDataJson) {
         try {
             Map<String, Object> formData = (Map<String, Object>) JSON.deserializeUntyped(formDataJson);
             
-            // Extract required fields
             String externalFormId = (String) formData.get('externalFormId');
             String formId = (String) formData.get('formId');
             String sourceRecordId = (String) formData.get('sourceRecordId');
@@ -22,12 +13,11 @@ public with sharing class DraftFormService {
             String objectName = (String) formData.get('objectName');
             Integer progress = (Integer) formData.get('progress');
             
-            // Validate required fields
             if (String.isBlank(externalFormId) || String.isBlank(formId)) {
                 throw new AuraHandledException('External Form ID and Form ID are required');
             }
             
-            // Check if draft already exists
+            // Check if draft already exists for this external form ID
             List<DraftForm__c> existingDrafts = [
                 SELECT Id, Name, External_Form_ID__c, Form_ID__c, Source_Record_ID__c, Form_Data_JSON__c, Status__c
                 FROM DraftForm__c 
@@ -44,25 +34,23 @@ public with sharing class DraftFormService {
                 // Create new draft
                 draftForm = new DraftForm__c();
                 draftForm.External_Form_ID__c = externalFormId;
-                draftForm.Status__c = 'Draft'; // Set default status
+                draftForm.Status__c = 'Draft';
             }
             
-            // Set/update fields
             draftForm.Form_ID__c = formId;
             draftForm.Source_Record_ID__c = sourceRecordId;
             draftForm.Form_Data_JSON__c = formDataJson;
             
-            // Ensure status is Draft when saving draft
+            // Keep status as Draft unless already Created
             if (draftForm.Status__c != 'Created') {
                 draftForm.Status__c = 'Draft';
             }
             
-            // Generate user-friendly name
+            // Generate user-friendly name with progress
             String progressText = progress != null ? progress + '% Complete' : 'In Progress';
             String creatorName = UserInfo.getName();
             draftForm.Name = objectName + ' / ' + formName + ' - ' + progressText + ' (by ' + creatorName + ')';
             
-            // Save the record
             if (draftForm.Id != null) {
                 update draftForm;
             } else {
@@ -77,22 +65,16 @@ public with sharing class DraftFormService {
         }
     }
     
-    /**
-     * Get all draft forms (shared access - optional filtering by Source_Record_ID__c)
-     * @param recordId - Optional record ID to filter drafts by Source_Record_ID__c
-     * @return List<DraftForm__c> - Draft forms with creator info
-     */
+    // Retrieves all draft forms, optionally filtered by source record ID
     @AuraEnabled(cacheable=false)
     public static List<DraftForm__c> getAllDraftForms(String recordId) {
         try {
-            // Build dynamic SOQL query
             String soql = 'SELECT Id, Name, External_Form_ID__c, Form_ID__c, Source_Record_ID__c, ' +
                           'Form_Data_JSON__c, Status__c, Created_Record_ID__c, CreatedBy.Name, CreatedDate, LastModifiedDate ' +
                           'FROM DraftForm__c ';
             
-            // Add recordId filter if provided
+            // Filter by source record if provided
             if (String.isNotBlank(recordId)) {
-                System.debug('DraftFormService.getAllDraftForms: Filtering drafts for recordId: ' + recordId);
                 soql += 'WHERE Source_Record_ID__c = :recordId ';
             }
             
@@ -105,11 +87,7 @@ public with sharing class DraftFormService {
         }
     }
     
-    /**
-     * Get specific draft by record ID
-     * @param draftId - DraftForm__c record ID
-     * @return DraftForm__c - Draft form record
-     */
+    // Retrieves a specific draft form by its record ID
     @AuraEnabled
     public static DraftForm__c getDraftById(String draftId) {
         try {
@@ -137,10 +115,7 @@ public with sharing class DraftFormService {
         }
     }
     
-    /**
-     * Delete draft form record
-     * @param draftId - DraftForm__c record ID to delete
-     */
+    // Deletes a draft form permanently
     @AuraEnabled
     public static void deleteDraftForm(String draftId) {
         try {
@@ -157,48 +132,14 @@ public with sharing class DraftFormService {
             
             if (!draftsToDelete.isEmpty()) {
                 delete draftsToDelete;
-                System.debug('Successfully deleted draft: ' + draftId);
             }
             
         } catch (Exception e) {
-            System.debug('Error deleting draft form: ' + e.getMessage());
             throw new AuraHandledException('Error deleting draft: ' + e.getMessage());
         }
     }
     
-    /**
-     * Get draft by External Form ID (for migration/compatibility)
-     * @param externalFormId - External Form ID
-     * @return DraftForm__c - Draft form record or null
-     */
-    @AuraEnabled
-    public static DraftForm__c getDraftByExternalId(String externalFormId) {
-        try {
-            if (String.isBlank(externalFormId)) {
-                return null;
-            }
-            
-            List<DraftForm__c> drafts = [
-                SELECT Id, Name, External_Form_ID__c, Form_ID__c, Source_Record_ID__c, 
-                       Form_Data_JSON__c, Status__c, CreatedBy.Name, CreatedDate
-                FROM DraftForm__c 
-                WHERE External_Form_ID__c = :externalFormId
-                LIMIT 1
-            ];
-            
-            return drafts.isEmpty() ? null : drafts[0];
-            
-        } catch (Exception e) {
-            System.debug('Error getting draft by external ID: ' + e.getMessage());
-            return null;
-        }
-    }
-    
-    /**
-     * Update draft status from Draft to Created when form is successfully submitted
-     * @param draftId - DraftForm__c record ID to update
-     * @param createdRecordId - ID of the created record for reference
-     */
+    // Updates draft status from Draft to Created when form is successfully submitted
     @AuraEnabled
     public static void updateDraftStatus(String draftId, String createdRecordId) {
         try {
@@ -216,12 +157,11 @@ public with sharing class DraftFormService {
             if (!draftsToUpdate.isEmpty()) {
                 DraftForm__c draftForm = draftsToUpdate[0];
                 draftForm.Status__c = 'Created';
-                draftForm.Created_Record_ID__c = createdRecordId; // Store the created record ID
+                draftForm.Created_Record_ID__c = createdRecordId;
                 
-                // Optionally update the name to indicate it's been created
+                // Update name to reflect created status
                 if (draftForm.Name != null) {
                     String currentName = draftForm.Name;
-                    // Replace status indicators in the name
                     currentName = currentName.replace('- In Progress', '- Created');
                     currentName = currentName.replace('% Complete', '% - Created');
                     if (!currentName.contains('Created')) {
@@ -231,13 +171,9 @@ public with sharing class DraftFormService {
                 }
                 
                 update draftForm;
-                System.debug('Successfully updated draft status to Created: ' + draftId);
-            } else {
-                System.debug('Draft not found for status update: ' + draftId);
             }
             
         } catch (Exception e) {
-            System.debug('Error updating draft status: ' + e.getMessage());
             throw new AuraHandledException('Error updating draft status: ' + e.getMessage());
         }
     }

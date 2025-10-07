@@ -3,7 +3,6 @@ import getAllSalesforceObjects from '@salesforce/apex/ObjectService.getAllSalesf
 import getObjectRecordTypes from '@salesforce/apex/ObjectService.getObjectRecordTypes';
 
 export default class ObjectSelector extends LightningElement {
-    // API properties for receiving data from parent
     @api initialSelectedObject;
     @api initialSelectedRecordType;
     @api initialSelectedRecordTypeName;
@@ -18,14 +17,11 @@ export default class ObjectSelector extends LightningElement {
     @track showRecordTypeSelector = false;
     @track formName = '';
     
-    // Loading states
     @track isLoadingObjects = false;
     @track isLoadingRecordTypes = false;
-    
-    // Track if component has been initialized
     @track isInitialized = false;
     
-    // Wire Salesforce Objects
+    // Load all Salesforce objects for selection
     @wire(getAllSalesforceObjects)
     wiredObjects({ data, error }) {
         if (data) {
@@ -34,7 +30,6 @@ export default class ObjectSelector extends LightningElement {
                 value: obj.value
             }));
             
-            // Initialize with existing data if available
             this.initializeFromParentData();
         } else if (error) {
             console.error('Error loading objects:', error);
@@ -42,7 +37,7 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
-    // Initialize component with data from parent
+    // Initialize with existing values when editing (only once)
     async initializeFromParentData() {
         if (!this.isInitialized && this.initialSelectedObject && this.objectOptions.length > 0) {
             this.selectedObject = this.initialSelectedObject;
@@ -53,7 +48,6 @@ export default class ObjectSelector extends LightningElement {
             if (this.selectedObject) {
                 await this.loadRecordTypes();
                 
-                // Set record type after loading options
                 if (this.initialSelectedRecordType) {
                     this.selectedRecordType = this.initialSelectedRecordType;
                     this.selectedRecordTypeName = this.initialSelectedRecordTypeName;
@@ -64,7 +58,6 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
-    // Object selection handler
     async handleObjectChange(event) {
         this.selectedObject = event.detail.value;
         this.resetRecordTypeData();
@@ -74,7 +67,6 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
-    // Record type selection handler
     handleRecordTypeChange(event) {
         this.selectedRecordType = event.detail.value;
         
@@ -85,7 +77,7 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
-    // Load record types for selected object
+    // Load record types for selected object and auto-select default
     async loadRecordTypes() {
         this.isLoadingRecordTypes = true;
         
@@ -100,7 +92,7 @@ export default class ObjectSelector extends LightningElement {
                     isDefault: rt.isDefault
                 }));
                 
-                // Auto-select default record type if available
+                // Auto-select default record type
                 const defaultRecordType = this.recordTypeOptions.find(rt => rt.isDefault);
                 if (defaultRecordType) {
                     this.selectedRecordType = defaultRecordType.value;
@@ -110,7 +102,7 @@ export default class ObjectSelector extends LightningElement {
                 
                 this.showRecordTypeSelector = true;
             } else {
-                // No record types available
+                // Object has no record types, use Master
                 this.showRecordTypeSelector = false;
                 this.selectedRecordType = '';
                 this.selectedRecordTypeName = 'Master';
@@ -124,12 +116,11 @@ export default class ObjectSelector extends LightningElement {
         }
     }
     
-    // Form name change handler
     handleFormNameChange(event) {
         this.formName = event.target.value;
     }
     
-    // Continue to next step
+    // Validate selections and notify parent component
     handleContinue() {
         if (!this.selectedObject) {
             this.dispatchErrorEvent('Please select an object to continue');
@@ -146,7 +137,6 @@ export default class ObjectSelector extends LightningElement {
             return;
         }
         
-        // Dispatch event with selected data
         const selectedEvent = new CustomEvent('objectselected', {
             detail: {
                 objectName: this.selectedObject,
@@ -158,7 +148,6 @@ export default class ObjectSelector extends LightningElement {
         this.dispatchEvent(selectedEvent);
     }
     
-    // Reset record type data
     resetRecordTypeData() {
         this.recordTypeOptions = [];
         this.selectedRecordType = '';
@@ -167,7 +156,6 @@ export default class ObjectSelector extends LightningElement {
         this.showRecordTypeSelector = false;
     }
     
-    // Validation
     get canContinue() {
         if (!this.selectedObject) return false;
         if (this.showRecordTypeSelector && !this.selectedRecordType) return false;
@@ -179,7 +167,6 @@ export default class ObjectSelector extends LightningElement {
         return !this.canContinue;
     }
     
-    // Utility methods
     dispatchErrorEvent(message) {
         const errorEvent = new CustomEvent('error', {
             detail: { message }

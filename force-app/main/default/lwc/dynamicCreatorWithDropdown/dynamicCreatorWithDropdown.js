@@ -1,80 +1,66 @@
-// dynamicCreatorWithDropdown.js
 import { LightningElement, track, wire } from 'lwc';
 import { NavigationMixin, CurrentPageReference } from 'lightning/navigation';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
-import Listening from "@salesforce/resourceUrl/Listening"; // Current image
+import Listening from "@salesforce/resourceUrl/Listening";
 import RPISTOLWC from "@salesforce/messageChannel/FORMMC__c";
 import { subscribe, MessageContext } from 'lightning/messageService';
 import noHeader from '@salesforce/resourceUrl/NoHeader';
 import {loadStyle} from "lightning/platformResourceLoader";
 
-// Import Apex methods
 import getObjectFieldsData from '@salesforce/apex/DynamicObjectService.getObjectFieldsData';
 import getContactAndAccountData from '@salesforce/apex/DynamicObjectService.getContactAndAccountData';
 
-// Import DraftForm service methods
 import saveDraftForm from '@salesforce/apex/DraftFormService.saveDraftForm';
 import getDraftById from '@salesforce/apex/DraftFormService.getDraftById';
 import deleteDraftForm from '@salesforce/apex/DraftFormService.deleteDraftForm';
 import updateDraftStatus from '@salesforce/apex/DraftFormService.updateDraftStatus';
 
-
 export default class DynamicCreatorWithDropdown extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
     context;
 
-    // URL param handling
     @track formPreselected = false;
     @track selectedForm;
     @track selectedFormName;
     @track selectedObject;
     @track recordTypeId;
     @track recordTypeName;
-    @track sourceRecordId; // For navigation back to source record
-    @track contactId; // Contact ID from URL for auto-population
+    @track sourceRecordId;
+    @track contactId;
 
-    // Static image for listening visualization
-    listeningImageUrl = Listening; // Using new Listening image
-    // voiceVisualizationUrl = voiceVisualization; // Backup option
+    listeningImageUrl = Listening;
     
-    // External form identification
-    @track externalFormId; // Unique identifier for form instances
-    @track isEditMode = false; // Flag to distinguish new vs edit forms
+    @track externalFormId;
+    @track isEditMode = false;
     
-     // Field and form data
     @track fieldsArray = [];
     @track objectFieldsData = null;
-    @track sectionSteps = []; // Updated from sectionSteps
+    @track sectionSteps = [];
     @track filledFields = new Set();
     @track completedSteps = new Set();
     @track isLoadingFields = false;
     @track isCreating = false;
     
-    // Success modal
     @track showSuccessModal = false;
     @track createdRecordId;
     
-    // Draft form functionality
     @track showCancelModal = false;
     @track showDeleteModal = false;
     @track draftRecordId;
     @track isEditingDraft = false;
-    @track draftExternalFormId; // Consistent external form ID for drafts
-    @track isUpdateMode = false; // True when updating an existing record
-    @track recordIdToUpdate; // ID of the record to update
-    @track modalContext = 'cancel'; // Track which button triggered the modal: 'cancel' or 'back'
+    @track draftExternalFormId;
+    @track isUpdateMode = false;
+    @track recordIdToUpdate;
+    @track modalContext = 'cancel';
     
-    // Session storage for form persistence
     _saveDataTimeout;
-
     RPISTOLWCSubscription = null;
 
     connectedCallback() {
-
         loadStyle(this, noHeader);
 
-        // Prepare and attach stable handler references so removeEventListener works
+        // Bind event handlers once to enable proper cleanup on disconnect
         if (!this._boundFocusIn) {
             this._boundFocusIn = this.handleFieldFocus.bind(this);
         }
@@ -82,7 +68,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             this._boundClick = this.handleTemplateClick.bind(this);
         }
 
-        // Add event listeners for focus events on input fields and outside clicks
         this.template.addEventListener('focusin', this._boundFocusIn);
         this.template.addEventListener('click', this._boundClick);
 
@@ -90,73 +75,44 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     subscribeRPISTOLWCMC() {
-        console.log('SHSFORM: ','dynamicCreatorWithDropDown: Subscribing to RPISTOLWC!!');
         if (this.RPISTOLWCSubscription) {
-            console.log('SHSFORM: ','dynamicCreatorWithDropDown: RPISTOLWC subscription already exists');
             return;
         }
-        console.log('SHSFORM: ','dynamicCreatorWithDropDown: Creating RPISTOLWC subscription');
+        // Subscribe to receive real-time form data from external voice/chat integrations
         this.RPISTOLWCSubscription = subscribe(this.context, RPISTOLWC, (message) => {
-            console.log('SHSFORM: ','dynamicCreatorWithDropDown: Received RPISTOLWC message:', message);
             if ( message?.type === 'inProgressFormData') {
                 this.handleFormDataMessage(message);
-                console.log('SHSFORM: ','dynamicCreatorWithDropDown Received RPISTOLWC inProgressFormData Message:', message);
-            } else {
-                console.log('SHSFORM: ','dynamicCreatorWithDropDown: Message type not inProgressFormData:', message?.type);
             }
         });
-        console.log('SHSFORM: ','dynamicCreatorWithDropDown: RPISTOLWC subscription created successfully');
     }
 
     async handleFormDataMessage(message) {
         try {
-            console.log('SHSFORM: ','SHS: Paichi');
-            console.log('SHSFORM: ','SHS: Received form data message:', message);
-            
             if (!message || !message.callFormData) {
-                console.warn('No callFormData in message');
                 return;
             }
 
-            // Step 1: Access callFormData directly (it's already an object)
             const dataObj = message.callFormData;
-            console.log('SHSFORM: ','Data object:', dataObj);
 
-            // Step 2: Parse the 'formData' which is still a JSON string (second JSON parse)
             if (!dataObj.formData) {
-                console.warn('No formData in data object');
                 return;
             }
 
             const formDataObj = JSON.parse(dataObj.formData);
-            console.log('SHSFORM: ','Parsed form data object:', formDataObj);
 
-            // ✅ CRITICAL FIX: Form Targeting Validation
-            // Check if this message is meant for THIS specific form instance using activeFormId
+            // Ensure message is targeting this specific form instance
             if (dataObj.activeFormId) {
                 if (dataObj.activeFormId !== this.externalFormId) {
-                    console.log('SHSFORM: ',`FormDataMessage targeting validation: Message meant for form '${dataObj.activeFormId}', but this is form '${this.externalFormId}'. Ignoring message to prevent data corruption.`);
-                    return; // Exit early - not meant for this form
+                    return;
                 }
-                console.log('SHSFORM: ',`FormDataMessage targeting validation: Message confirmed for this form '${this.externalFormId}'. Processing...`);
-            } else {
-                // For backward compatibility: if no activeFormId, check if we have an externalFormId
-                // Only process if this is the only form or if we're in a fallback scenario
-                console.log('SHSFORM: ',`FormDataMessage targeting validation: No activeFormId in message. Current form: '${this.externalFormId}'. Processing with caution - potential data corruption risk in multi-form scenarios.`);
             }
 
-            // Step 3: Extract the field details
             if (!formDataObj.fieldsDetails) {
-                console.warn('No fieldsDetails in form data object');
                 return;
             }
 
             const fieldsDetails = formDataObj.fieldsDetails;
-            console.log('SHSFORM: ','Fields to populate for form ' + this.externalFormId + ':', fieldsDetails);
-
-            // Wait for DOM to be ready then populate the fields
             await Promise.resolve();
-            
             this.populateFormFields(fieldsDetails);
 
         } catch (error) {
@@ -165,64 +121,42 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     populateFormFields(fieldsDetails) {
-        console.log('SHSFORM: ','SHS: Paichiv2');
         try {
-            console.log('SHSFORM: ','Populating form fields with:', fieldsDetails);
-            
-            // Get all lightning-input-field elements
             const inputFields = this.template.querySelectorAll('lightning-input-field');
-            let fieldsPopulated = 0;
             
             inputFields.forEach(field => {
                 const fieldName = field.fieldName;
                 
-                // Check if this field has data in the fieldsDetails
                 if (Object.prototype.hasOwnProperty.call(fieldsDetails, fieldName)) {
                     let fieldValue = fieldsDetails[fieldName];
-                    
-                    // Process the field value to handle escaped quotes and type conversion
                     fieldValue = this.processFieldValue(fieldValue, field);
-                    
-                    // Set the field value
                     field.value = fieldValue;
                     
-                    // Add to filled fields tracking
                     if (fieldValue != null && fieldValue !== undefined && fieldValue !== '') {
                         this.filledFields.add(fieldName);
-                        fieldsPopulated++;
                     }
-                    
-                    console.log('SHSFORM: ',`Populated field ${fieldName} with processed value:`, fieldValue);
                 }
             });
             
-            // Trigger reactivity for filled fields
             this.filledFields = new Set(this.filledFields);
-            
-            // Update step progress and section progress
             this.updateStepProgress();
             
-            // Update all section progress
             this.sectionSteps.forEach(section => {
                 this.updateSectionProgress(section.fieldComponents?.[0]?.apiName);
             });
             
-        // Update field styling for populated fields individually (avoid bulk updates after data load)
-        Promise.resolve().then(() => {
+            Promise.resolve().then(() => {
             this.updateIndividualFieldStyling();
         });
             
-            // Save the updated form data to session storage
             this.saveFormData();
-            
-            console.log('SHSFORM: ',`Successfully populated ${fieldsPopulated} fields`);
             
         } catch (error) {
             console.error('Error populating form fields:', error);
         }
     }
     
-    // Process field value to handle escaped quotes and type conversion
+    // Process and convert field values from external sources to proper Salesforce data types
     processFieldValue(value, field) {
         if (value == null || value === undefined) {
             return value;
@@ -230,30 +164,26 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         let processedValue = value;
         
-        // Convert to string for processing
         if (typeof processedValue !== 'string') {
             processedValue = String(processedValue);
         }
         
-        // Handle escaped Unicode quotes (\\u0022 becomes ")
+        // Handle escaped Unicode quotes from JSON
         processedValue = processedValue.replace(/\\u0022/g, '"');
         
-        // Remove surrounding quotes if they exist
         if (processedValue.startsWith('"') && processedValue.endsWith('"')) {
             processedValue = processedValue.slice(1, -1);
         }
         
-        // Get field type from lightning-input-field element
         const fieldType = field.type || this.getFieldTypeFromElement(field);
         const fieldName = field.fieldName;
         
-        // Handle lookup fields (AccountId, ContactId, etc.)
+        // Lookup fields require string IDs
         if (fieldType === 'lookup' || fieldName.endsWith('Id') || fieldName.endsWith('__c')) {
-            // For lookup fields, ensure we return a clean string ID
             return processedValue.trim();
         }
         
-        // Convert based on field type
+        // Convert numeric values to proper types
         if (fieldType === 'number' || fieldType === 'currency' || fieldType === 'percent') {
             const numberValue = parseFloat(processedValue);
             return isNaN(numberValue) ? processedValue : numberValue;
@@ -264,18 +194,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return processedValue === 'true' || processedValue === true;
         }
         
-        // For all other types (text, email, phone, etc.), return as string
         return processedValue;
     }
     
-    // Helper method to get field type from lightning-input-field element
+    // Infer field type from field name patterns when type metadata is unavailable
     getFieldTypeFromElement(field) {
-        // Try to get type from the field element
         if (field.type) {
             return field.type;
         }
         
-        // Check if we can get it from the field's attributes or dataset
         const fieldName = field.fieldName;
         
         if (!fieldName) {
@@ -284,7 +211,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         const lowerFieldName = fieldName.toLowerCase();
         
-        // Detect lookup fields (reference fields)
+        // Detect lookup/reference fields
         if (fieldName.endsWith('Id') && !fieldName.includes('External')) {
             return 'lookup';
         }
@@ -292,7 +219,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return 'lookup';
         }
         
-        // Common patterns for field types based on field names
+        // Detect numeric field types by name patterns
         if (lowerFieldName.includes('amount')) {
             return 'currency';
         }
@@ -303,19 +230,14 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return 'number';
         }
         
-        // Default to text if we can't determine the type
         return 'text';
     }
     
-    // Update styling for a single field that was changed
     updateSingleFieldStyling(lightningField) {
         try {
-            // Find the container for this specific field
             const container = lightningField.closest('.slds-col');
             if (container) {
                 const fieldValue = lightningField.value;
-                
-                // Check if this field actually has a non-empty value
                 const hasValue = this.fieldHasValue(fieldValue);
                 
                 if (hasValue) {
@@ -325,13 +247,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 }
             }
         } catch (error) {
-            console.warn('Error updating single field styling:', error);
+            console.error('Error updating single field styling:', error);
         }
     }
     
-    // Update field styling individually based on filledFields set (safe after data load)
     updateIndividualFieldStyling() {
-        // Prevent multiple rapid calls
         if (this.isUpdatingStyling) {
             return;
         }
@@ -346,10 +266,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     
     doUpdateIndividualFieldStyling() {
         try {
-            // Clear processed fields at start of new run
             this.processedFields = new Set();
-            
-            // Get all lightning-input-field elements and work backwards to containers
             const allLightningFields = this.template.querySelectorAll('lightning-input-field');
             
             allLightningFields.forEach(lightningField => {
@@ -359,23 +276,20 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 }
             });
             
-            // Clear at the end
             this.processedFields.clear();
         } catch (error) {
-            console.warn('Error updating individual field styling:', error);
+            console.error('Error updating individual field styling:', error);
         }
     }
     
     processSingleFieldStyling(container, lightningField) {
         const fieldName = lightningField.fieldName;
         
-        // Check for duplicate processing
         if (this.processedFields.has(fieldName)) {
             return;
         }
         this.processedFields.add(fieldName);
         
-        // Use filledFields set which is accurate after data restoration
         const hasValue = this.filledFields.has(fieldName);
         
         if (hasValue) {
@@ -387,19 +301,14 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
-    // Update field styling to highlight fields with values (used for bulk updates)
     updateFieldStyling() {
         try {
-            // Get all field containers
             const fieldContainers = this.template.querySelectorAll('.slds-col');
             
             fieldContainers.forEach(container => {
                 const lightningField = container.querySelector('lightning-input-field');
                 if (lightningField) {
                     const fieldValue = lightningField.value;
-                    
-                    // Always check actual field values, not just the filledFields set
-                    // This prevents stale data after page refresh
                     const hasValue = this.fieldHasValue(fieldValue);
                     
                     if (hasValue) {
@@ -410,65 +319,52 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 }
             });
         } catch (error) {
-            console.warn('Error updating field styling:', error);
+            console.error('Error updating field styling:', error);
         }
     }
     
-    // Helper method to determine if a field has a meaningful value
+    // Check if field has a meaningful value (handles all data types including boolean false)
     fieldHasValue(value) {
-        // Handle different value types
         if (value === null || value === undefined) {
             return false;
         }
         
-        // For boolean fields, both true and false are considered "has value"
         if (typeof value === 'boolean') {
-            return true;
+            return true; // Both true and false are valid values
         }
         
-        // For numbers, including 0
         if (typeof value === 'number') {
-            return true;
+            return true; // Including 0
         }
         
-        // For strings, check if not empty (trim to handle whitespace-only strings)
         if (typeof value === 'string') {
             return value.trim() !== '';
         }
         
-        // For arrays (multi-select picklists)
         if (Array.isArray(value)) {
             return value.length > 0;
         }
         
-        // For objects (dates, lookups, etc.)
         if (typeof value === 'object') {
             return true;
         }
         
-        // Default: if it exists and isn't empty string, it has value
         return value !== '';
     }
 
     disconnectedCallback() {
-        // Save form data before unmounting
         this._saveDataTimeout = false;
         this.saveFormData();
         
-        // Remove event listeners using the same bound references
         if (this._boundFocusIn) {
             this.template.removeEventListener('focusin', this._boundFocusIn);
         }
         if (this._boundClick) {
             this.template.removeEventListener('click', this._boundClick);
         }
-
-        // No cleanup needed for static images
     }
 
-    // No animation methods needed - using simple image
-
-    // Read URL params for deep-linking (c__formId, c__externalFormId, c__mode, c__recordId for navigation back and auto-population if Contact, c__draftRecordId, c__createdRecordId)
+    // Parse URL parameters to determine form mode (new/edit/update/draft) and auto-populate data
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
@@ -477,65 +373,58 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const recordId = state.c__recordId || state.recordId || '';
             const externalFormId = state.c__externalFormId || '';
             const mode = state.c__mode || 'new';
-            const draftRecordId = state.c__draftRecordId || ''; // NEW: Draft record ID
-            const createdRecordId = state.c__createdRecordId || ''; // NEW: Created record ID for updates
-            // Check if recordId is a Contact ID (starts with '003')
+            const draftRecordId = state.c__draftRecordId || '';
+            const createdRecordId = state.c__createdRecordId || '';
             const recordIdToCheck = state.c__recordId || state.recordId || '';
-            const contactId = recordIdToCheck.startsWith('003') ? recordIdToCheck : null;
+            const contactId = recordIdToCheck.startsWith('003') ? recordIdToCheck : null; // Contact IDs start with 003
             
             
+            // Priority 1: Load existing draft for editing
             if (draftRecordId) {
-                // Editing a saved draft
                 this.draftRecordId = draftRecordId;
                 this.isEditingDraft = true;
-                this.isUpdateMode = (mode === 'update' && createdRecordId); // NEW: Check if this is update mode
-                this.recordIdToUpdate = createdRecordId || null; // NEW: Store record ID to update
+                this.isUpdateMode = (mode === 'update' && createdRecordId); // Update mode modifies existing records
+                this.recordIdToUpdate = createdRecordId || null;
                 this.formPreselected = true;
                 this.resetFormState();
                 this.loadFormFromDraft();
             } else if (formId) {
-                // If param-driven and changed, reload
+                // Priority 2: Load form configuration and auto-populate if Contact ID provided
                 if (formId !== this.selectedForm || externalFormId !== this.externalFormId || contactId !== this.contactId) {
                     this.formPreselected = true;
                     this.selectedForm = formId;
-                    this.sourceRecordId = recordId; // Store source record ID for navigation back
-                    this.contactId = contactId; // Store contact ID for auto-population
+                    this.sourceRecordId = recordId;
+                    this.contactId = contactId;
                     this.externalFormId = externalFormId || 'default';
                     this.isEditMode = (mode === 'edit');
-                    this.isEditingDraft = false; // Not editing a draft
-                    this.isUpdateMode = false; // NEW: Not in update mode
+                    this.isEditingDraft = false;
+                    this.isUpdateMode = false;
                     this.draftRecordId = null;
-                    this.recordIdToUpdate = null; // NEW: No record to update
+                    this.recordIdToUpdate = null;
                     this.resetFormState();
                     this.loadObjectFieldsData();
                 }
             } else {
-                // No param: allow on-page selector
+                // Priority 3: Allow manual form selection
                 this.formPreselected = false;
                 this.isEditingDraft = false;
-                this.isUpdateMode = false; // NEW: Not in update mode
+                this.isUpdateMode = false;
                 this.draftRecordId = null;
-                this.recordIdToUpdate = null; // NEW: No record to update
+                this.recordIdToUpdate = null;
             }
         } catch (e) {
             console.error('Error reading URL params', e);
         }
     }
 
-    // No local selector UI; page expects a deep link
-
-    // Wire adapter to fetch object metadata for record type (if needed)
     @wire(getObjectInfo, { objectApiName: '$selectedObject' })
     wiredInfo({ data, error }) {
         if (data && !this.recordTypeId) {
-            // Use default record type if not already set from field analysis
             this.recordTypeId = data.defaultRecordTypeId;
         } else if (error) {
             console.error('Error loading object metadata', error);
         }
     }
-
-    // ========== FORM SELECTION REMOVED ==========
 
     resetFormState() {
         this.filledFields.clear();
@@ -548,30 +437,24 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.recordTypeId = null;
         this.recordTypeName = '';
         this.isLoadingFields = false;
-        // Note: Don't reset externalFormId, isEditMode, contactId, draftRecordId, isEditingDraft, draftExternalFormId, isUpdateMode, recordIdToUpdate here as they come from URL params
         this.showSuccessModal = false;
         this.createdRecordId = null;
         this.showCancelModal = false;
         this.showDeleteModal = false;
-        // Removed _hasInitialStyleUpdate flag - no longer needed
     }
-
-    // ========== DATA LOADING ==========
 
     async loadObjectFieldsData() {
         this.isLoadingFields = true;
         
         try {
             const result = await getObjectFieldsData({ analysisId: this.selectedForm });
-            console.log('SHSFORM: ','Field data received:', result);
-            
             this.objectFieldsData = result;
             this.selectedObject = result.objectName;
             this.selectedFormName = result.formName;
             this.recordTypeId = result.recordTypeId;
             this.recordTypeName = result.recordTypeName || '';
             
-            // Create fields array with 3-column grid system
+            // Build responsive 3-column grid with proper handling of remaining fields
             this.fieldsArray = result.fields.map((fieldName, index) => {
                 const totalFields = result.fields.length;
                 const remainingFields = totalFields % 3;
@@ -580,21 +463,16 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 let cssClass;
                 
                 if (totalFields === 1) {
-                    // Single field takes full width
                     cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small full-width-field";
                 } else if (totalFields === 2) {
-                    // Two fields split full width (50% each)
                     cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small remaining-field";
                 } else if (isInRemainingGroup) {
-                    // Remaining fields (1 or 2) take full width and split evenly
                     if (remainingFields === 1) {
                         cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_x-small remaining-field full-width-field";
                     } else {
-                        // 2 remaining fields split 50/50
                         cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_x-small remaining-field";
                     }
                 } else {
-                    // First 3 fields (or multiples of 3) use 3-column layout
                     cssClass = "slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-var-m-bottom_x-small grid-field";
                 }
                 
@@ -606,17 +484,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 };
             });
             
-            // Process instructions for step-by-step guidance
             this.processSections();
-            
-            // Load saved form data
             this.loadFormData();
             
-            // Auto-populate contact and account fields if contact ID is provided
             if (this.contactId) {
                 this.autoPopulateContactFields();
             }
-            
             
         } catch (error) {
             console.error('Error loading field data:', error);
@@ -626,19 +499,17 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // ========== SECTION PROCESSING ==========
-
     processSections() {
         if (!this.objectFieldsData) {
             this.sectionSteps = [];
             return;
         }
 
-        // Only show sections if we have custom sections from database
+        // Build section-based form with progress tracking
         if (this.objectFieldsData.instructions && this.objectFieldsData.instructions.length > 0) {
             this.sectionSteps = this.objectFieldsData.instructions.map((section, index) => ({
                 ...section,
-                sectionName: section.text, // Section name from Name field
+                sectionName: section.text,
                 fieldComponents: section.fields.map((field, fieldIndex) => {
                     const totalFields = section.fields.length;
                     const remainingFields = totalFields % 3;
@@ -647,21 +518,16 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     let cssClass;
                     
                     if (totalFields === 1) {
-                        // Single field takes full width
                         cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small full-width-field";
                     } else if (totalFields === 2) {
-                        // Two fields split full width (50% each)
                         cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small remaining-field";
                     } else if (isInRemainingGroup) {
-                        // Remaining fields (1 or 2) take full width and split evenly
                         if (remainingFields === 1) {
                             cssClass = "slds-col slds-size_1-of-1 slds-var-m-bottom_xx-small remaining-field full-width-field";
                         } else {
-                            // 2 remaining fields split 50/50
                             cssClass = "slds-col slds-size_1-of-1 slds-medium-size_6-of-12 slds-var-m-bottom_xx-small remaining-field";
                         }
                     } else {
-                        // First 3 fields (or multiples of 3) use 3-column layout
                         cssClass = "slds-col slds-size_1-of-1 slds-medium-size_4-of-12 slds-var-m-bottom_xx-small grid-field";
                     }
                     
@@ -680,20 +546,16 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 cssClass: 'section-step slds-var-m-bottom_small',
                 textCssClass: 'slds-text-body_regular',
                 fieldCssClass: '',
-                // Enhanced properties for section display
                 sectionId: `section-${section.id || index}`,
                 hasFields: section.fields && section.fields.length > 0
             }));
             
-            // Update step progress
             this.updateStepProgress();
         } else {
-            console.log('SHSFORM: ','No custom sections found, not showing any sections');
             this.sectionSteps = [];
         }
     }
     
-    // Get section progress for individual section
     getSectionProgress(section) {
         if (!section || !section.fieldComponents) {
             return { completed: 0, total: 0, percentage: 0 };
@@ -711,7 +573,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         };
     }
     
-    // Get sections with enhanced progress data
     get sectionsWithProgress() {
         return this.sectionSteps.map(section => ({
             ...section,
@@ -722,44 +583,31 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
 
 
-    // ========== FIELD CHANGE HANDLING ==========
 
     handleFieldChange(event) {
         const fieldName = event.target.fieldName;
         const value = event.target.value;
         
-        // Handle different field types properly
+        // Track filled fields (boolean false counts as filled)
         if (typeof value === 'boolean') {
-            // For boolean fields, any interaction (true or false) counts as filled
             this.filledFields.add(fieldName);
         } else if (value != null && value !== undefined && value !== '') {
-            // For other fields, only non-empty values count as filled
             this.filledFields.add(fieldName);
         } else {
-            // Remove from filled fields if empty/null
             this.filledFields.delete(fieldName);
         }
         
-        // Trigger reactivity
         this.filledFields = new Set(this.filledFields);
-        
-        // Update field visual styling ONLY for the field that changed
         this.updateSingleFieldStyling(event.target);
-        
-        // Update step progress
         this.updateStepProgress();
-        
-        // Update section completion status
         this.updateSectionProgress(fieldName);
         
-        
-        // Debounced save to session storage
+        // Debounce save to session storage to avoid excessive writes
         if (this._saveDataTimeout) {
             clearTimeout(this._saveDataTimeout);
         }
         this._saveDataTimeout = true;
         
-        // Use Promise for debouncing instead of setTimeout
         Promise.resolve().then(() => {
             if (this._saveDataTimeout) {
                 this._saveDataTimeout = false;
@@ -769,47 +617,37 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
     
     handleFieldFocus(event) {
-        // Check if the focused element is within a lightning-input-field
         const inputField = event.target.closest('lightning-input-field');
         if (inputField) {
             const fieldName = inputField.fieldName || inputField.dataset.fieldName;
             
             if (fieldName) {
-                // Find which section this field belongs to and set it as active
                 this.setActiveSectionByField(fieldName);
             }
         }
     }
     
     handleTemplateClick(event) {
-        // Check if click is on a section item
         const sectionItem = event.target.closest('.slds-progress__item');
         if (sectionItem) {
-            // Click is on a section item, don't remove border
             return;
         }
         
-        // Check if click is on or within an input field
         const inputField = event.target.closest('lightning-input-field');
         if (inputField) {
-            // Click is on an input field, don't remove border
             return;
         }
         
-        // Click is outside section items and input fields, remove all active borders
         this.clearAllActiveHighlights();
     }
     
-    // Clear all active highlights from section navigation
     clearAllActiveHighlights() {
         try {
-            // Remove active highlights from all navigation sections
             const allNavSections = this.template.querySelectorAll('.slds-progress__item');
             allNavSections.forEach(section => {
                 section.classList.remove('progress-step-active');
             });
             
-            // Clear active state from all sections (but keep filled field states)
             this.sectionSteps = this.sectionSteps.map(section => ({
                 ...section,
                 isActive: false
@@ -820,7 +658,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
-    // Set active section based on which field is being edited
     setActiveSectionByField(fieldName) {
         const sectionWithField = this.sectionSteps.find(section => 
             section.fieldComponents && section.fieldComponents.some(field => field.apiName === fieldName)
@@ -828,25 +665,20 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         
         if (sectionWithField) {
             this.setActiveSection(sectionWithField.sectionId);
-            // Add visual highlight to the navigation section item
             this.highlightNavigationSection(sectionWithField.sectionId);
         }
     }
     
-    // Add visual highlight to navigation section item - same as hover/click
     highlightNavigationSection(sectionId) {
         try {
-            // Remove existing active highlights
             const allNavSections = this.template.querySelectorAll('.slds-progress__item');
             allNavSections.forEach(section => {
                 section.classList.remove('progress-step-active');
             });
             
-            // Find and highlight the target navigation section
             const targetNavSection = this.template.querySelector(`[data-section-id="${sectionId}"]`);
             if (targetNavSection) {
                 
-                // Add the visual highlight with CSS outline
                 targetNavSection.classList.add('progress-step-active');
             }
         } catch (error) {
@@ -854,10 +686,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
-    // Update progress for sections when field changes
     updateSectionProgress(changedFieldName) {
         this.sectionSteps = this.sectionSteps.map(section => {
-            // Check if the changed field belongs to this section
             const fieldBelongsToSection = section.fieldComponents.some(
                 field => field.apiName === changedFieldName
             );
@@ -876,9 +706,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         });
     }
     
-    // ========== SECTION NAVIGATION ==========
-    
-    // Handle section navigation clicks
     handleSectionClick(event) {
         const sectionId = event.currentTarget.dataset.sectionId;        
         this.focusOnSection(sectionId);
@@ -886,9 +713,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         this.highlightNavigationSection(sectionId);
     }
     
-    // Handle keyboard navigation for sections
     handleSectionKeyDown(event) {
-        // Support Enter and Space keys for accessibility
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             const sectionId = event.currentTarget.dataset.sectionId;
@@ -899,40 +724,31 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
-    // Scroll to and focus on specific section
     focusOnSection(sectionId) {
         try {
-            // Find the target section in the main form area
             const targetSection = this.template.querySelector(`[data-section-id="${sectionId}"].section-container`);
             
             if (targetSection) {
-                
-                // Smooth scroll to the section
                 targetSection.scrollIntoView({ 
                     behavior: 'smooth', 
                     block: 'start',
                     inline: 'nearest'
                 });
                 
-                // Add visual focus highlight (temporary) and remove after animation ends
                 targetSection.classList.add('section-focused');
                 const onAnimationEnd = () => {
                     targetSection.classList.remove('section-focused');
                     targetSection.removeEventListener('animationend', onAnimationEnd);
                 };
                 targetSection.addEventListener('animationend', onAnimationEnd);
-            } else {
-                console.warn('Target section not found:', sectionId);
             }
         } catch (error) {
             console.error('Error focusing on section:', error);
         }
     }
     
-    // Update active section in navigation
     setActiveSection(sectionId) {
         try {
-            // Update section active states
             this.sectionSteps = this.sectionSteps.map(section => ({
                 ...section,
                 isActive: section.sectionId === sectionId
@@ -943,24 +759,19 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // Check if step is completed based on filled fields
+    // Section is complete only when ALL fields are filled
     checkStepCompletion(instruction) {
         const stepFields = instruction.fields || [];
-        // Instruction is completed only when ALL related fields are filled
         return stepFields.length > 0 && stepFields.every(field => this.filledFields.has(field));
     }
 
-    // Update step progress based on filled fields
     updateStepProgress() {
-        // Only update if we have instructions
         if (!this.sectionSteps || this.sectionSteps.length === 0) {
             return;
         }
         
-        // Update completed steps based on field completion
         this.updateCompletedSteps();
         
-        // Update instruction step UI states
         this.sectionSteps = this.sectionSteps.map((instruction) => {
             const completedFieldsCount = instruction.fields.filter(field => 
                 this.filledFields.has(field)
@@ -976,7 +787,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 completedFields: completedFieldsCount,
                 completionPercentage: completionPercentage,
                 isCompleted: isCompleted,
-                // Keep existing isActive state - don't change it automatically
                 isActive: instruction.isActive,
                 cssClass: isCompleted 
                     ? 'instruction-step slds-var-m-bottom_small slds-theme_success'
@@ -989,7 +799,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         });
     }
 
-    // Update completed steps
     updateCompletedSteps() {
         this.completedSteps.clear();
         if (this.sectionSteps && this.sectionSteps.length > 0) {
@@ -999,38 +808,28 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 }
             });
         }
-        // Force reactivity
         this.completedSteps = new Set(this.completedSteps);
     }
 
     async handleSuccess(event) {
         const recordId = event.detail.id;
         
-        // Clear session data for this form
         this.clearFormData();
         
         if (this.isUpdateMode) {
-            // Handle update success - update existing draft record with current form data
-            console.log('SHSFORM: ',`${this.selectedObject} updated: ${recordId}`);
             await this.updateDraftWithCurrentFormData();
             this.showToast('Success', `${this.selectedObject} record updated successfully!`, 'success');
         } else {
-            // Handle create success
-            console.log('SHSFORM: ',`${this.selectedObject} created: ${recordId}`);
-            
             if (this.isEditingDraft && this.draftRecordId) {
-                // Update existing draft status to 'Created' and store record ID
                 await this.updateDraftStatusToCreated(recordId);
             } else {
-                // Create new draft record for reference (even if user didn't explicitly save draft)
                 await this.createDraftForReference(recordId);
             }
             
             this.showToast('Success', `${this.selectedObject} record created successfully!`, 'success');
         }
         
-        // Return to form selection for a clear post-success UX
-        this.handleCancelConfirmed(); // Use confirmed method to skip modal
+        this.handleCancelConfirmed();
     }
 
     async updateDraftStatusToCreated(createdRecordId) {
@@ -1040,17 +839,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     draftId: this.draftRecordId, 
                     createdRecordId: createdRecordId 
                 });
-                console.log('SHSFORM: ','Successfully updated draft status to Created:', this.draftRecordId);
             }
         } catch (error) {
-            console.warn('Error updating draft status:', error);
-            // Don't block success flow for status update failure
+            console.error('Error updating draft status:', error);
         }
     }
 
+    // Create draft record to link completed form with created Salesforce record
     async createDraftForReference(createdRecordId) {
         try {
-            // Create draft record for reference even if user didn't explicitly save draft
             const formData = {
                 externalFormId: this.generateUniqueFormId(), // Generate unique ID for this reference draft
                 formId: this.selectedForm,
@@ -1065,31 +862,25 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 isEditMode: this.isEditMode,
                 contactId: this.contactId,
                 timestamp: Date.now(),
-                status: 'Created', // Set status directly to Created
-                createdRecordId: createdRecordId // Store the created record ID
+                status: 'Created',
+                createdRecordId: createdRecordId
             };
 
-            // Save to DraftForm__c as reference
             const draftId = await saveDraftForm({ formDataJson: JSON.stringify(formData) });
             
-            // Update the draft status to Created and store record ID
             await updateDraftStatus({ 
                 draftId: draftId, 
                 createdRecordId: createdRecordId 
             });
 
-            console.log('SHSFORM: ','Successfully created reference draft for record:', createdRecordId);
-
         } catch (error) {
-            console.warn('Error creating reference draft:', error);
-            // Don't block success flow for draft creation failure
+            console.error('Error creating reference draft:', error);
         }
     }
 
     async updateDraftWithCurrentFormData() {
         try {
             if (this.isEditingDraft && this.draftRecordId) {
-                // Extract current form data to update the draft record
                 const formData = {
                     externalFormId: this.draftExternalFormId,
                     formId: this.selectedForm,
@@ -1106,14 +897,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     timestamp: Date.now()
                 };
 
-                // Update existing draft record with current form data
                 await saveDraftForm({ formDataJson: JSON.stringify(formData) });
-                
-                console.log('SHSFORM: ','Successfully updated draft with current form data:', this.draftRecordId);
             }
         } catch (error) {
-            console.warn('Error updating draft with current form data:', error);
-            // Don't block success flow for draft update failure
+            console.error('Error updating draft with current form data:', error);
         }
     }
 
@@ -1124,21 +911,17 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
 
     handleCancel() {
-        // Show confirmation modal instead of immediate cancel
         this.modalContext = 'cancel';
         this.showCancelModal = true;
     }
 
     handleCancelConfirmed() {
-        // User confirmed cancel - proceed with existing cancel logic
         this.showCancelModal = false;
-        // Clear the session data for this form when canceling
         this.clearFormData();
         this.navigateBack();
     }
 
     handleCancelDismissed() {
-        // User dismissed modal - stay on form
         this.showCancelModal = false;
     }
 
@@ -1149,7 +932,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 return;
             }
 
-            // Extract current form data (reuse existing logic)
             const formData = {
                 externalFormId: this.draftExternalFormId || this.generateDraftExternalFormId(),
                 formId: this.selectedForm,
@@ -1166,14 +948,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 timestamp: Date.now()
             };
 
-            // Save to DraftForm__c
             const draftId = await saveDraftForm({ formDataJson: JSON.stringify(formData) });
             
-            // Show success message based on whether this was an update or new save
             const isNewDraft = !this.isEditingDraft;
             const message = isNewDraft ? 'Draft saved successfully!' : 'Draft updated successfully!';
             
-            // Update current state if this is a new draft
             if (isNewDraft) {
                 this.draftRecordId = draftId;
                 this.isEditingDraft = true;
@@ -1194,7 +973,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 return;
             }
 
-            // Get draft from DraftForm__c
             const draftRecord = await getDraftById({ draftId: this.draftRecordId });
             if (!draftRecord || !draftRecord.Form_Data_JSON__c) {
                 throw new Error('Draft data not found');
@@ -1202,23 +980,17 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
             const formData = JSON.parse(draftRecord.Form_Data_JSON__c);
             
-            // Set form properties
             this.selectedForm = draftRecord.Form_ID__c;
             this.sourceRecordId = draftRecord.Source_Record_ID__c;
             this.externalFormId = formData.externalFormId || 'default';
-            this.draftExternalFormId = formData.externalFormId; // Store the external form ID for consistency
+            this.draftExternalFormId = formData.externalFormId;
             this.contactId = formData.contactId;
             this.isEditMode = formData.isEditMode || false;
 
-            // Load form structure first
             await this.loadObjectFieldsData();
             
-            // Then populate with draft data
             if (formData.fieldValues) {
-                // Restore filled fields from draft
                 this.filledFields = new Set(formData.filledFields || []);
-                
-                // Wait for form to render then populate fields
                 await Promise.resolve();
                 this.populateFieldsFromDraftData(formData);
             }
@@ -1226,7 +998,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         } catch (error) {
             console.error('Error loading draft:', error);
             this.showToast('Error', 'Failed to load draft: ' + this.getErrorMessage(error), 'error');
-            // Navigate back to form selector on error
             this.navigateBack();
         }
     }
@@ -1237,22 +1008,17 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             const fieldValues = formData.fieldValues || {};
             
             inputFields.forEach(field => {
-                // Check if field exists in saved values
                 if (field.fieldName in fieldValues) {
                     const value = fieldValues[field.fieldName];
                     field.value = value;
                 }
             });
             
-            // Update step progress
             this.updateStepProgress();
             
-            // Update field styling for restored values
             Promise.resolve().then(() => {
                 this.updateIndividualFieldStyling();
             });
-            
-            console.log('SHSFORM: ','Successfully loaded draft form data');
             
         } catch (error) {
             console.error('Error populating fields from draft:', error);
@@ -1265,7 +1031,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
 
     generateDraftExternalFormId() {
         if (!this.draftExternalFormId) {
-            // Create unique external form ID based on form template + timestamp
             this.draftExternalFormId = `draft_${this.selectedForm}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         return this.draftExternalFormId;
@@ -1277,32 +1042,22 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return;
         }
 
-        // Show delete confirmation modal
         this.showDeleteModal = true;
     }
 
     async handleDeleteConfirmed() {
         try {
-            // Close modal first
             this.showDeleteModal = false;
 
-            // Delete the draft record
             await deleteDraftForm({ draftId: this.draftRecordId });
             
-            // Clear draft-related state
             this.isEditingDraft = false;
             this.draftRecordId = null;
             this.draftExternalFormId = null;
             
-            // Clear form data
             this.clearFormData();
-            
-            // Show success message
             this.showToast('Success', 'Draft deleted successfully', 'success');
-            
-            // Navigate back to form selector
             this.navigateBack();
-            
         } catch (error) {
             console.error('Error deleting draft:', error);
             this.showToast('Error', 'Failed to delete draft: ' + this.getErrorMessage(error), 'error');
@@ -1310,19 +1065,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
     }
 
     handleDeleteDismissed() {
-        // User dismissed modal - stay on form
         this.showDeleteModal = false;
     }
 
-
     handleGoBack() {
-        // Show the same confirmation modal as Cancel button but with Back context
         this.modalContext = 'back';
         this.showCancelModal = true;
     }
 
     navigateBack() {
-        // If we have a source record ID, navigate back to that record
         if (this.sourceRecordId) {
             this[NavigationMixin.Navigate]({
                 type: 'standard__recordPage',
@@ -1334,11 +1085,8 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return;
         }
 
-        // If form was preselected via URL param, navigate back to selector tab
         if (this.formPreselected) {
-            
             const navigationState = {};
-            // Pass the recordId back to Form Selector if we have one
             if (this.sourceRecordId) {
                 navigationState.c__recordId = this.sourceRecordId;
             }
@@ -1351,23 +1099,18 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             return;
         }
         
-        // Fallback: reset to local selector UI
         this.selectedForm = '';
         this.resetFormState();
     }
 
-
-    // Getter for static card title
     get cardTitle() {
         return 'Dynamic Record Creator';
     }
 
-    // Check if we have custom instructions to show
     get hasSections() {
         return this.sectionSteps && this.sectionSteps.length > 0;
     }
 
-    // Dynamic create/update button label
     get createButtonLabel() {
         if (this.isUpdateMode) {
             return this.selectedObject ? `Update ${this.selectedObject}` : 'Update Record';
@@ -1375,7 +1118,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return this.selectedObject ? `Create ${this.selectedObject}` : 'Create Record';
     }
 
-    // Get progress indicator steps
     get progressSteps() {
         return this.sectionSteps.map(section => {
             const progress = this.getSectionProgress(section);
@@ -1399,7 +1141,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         });
     }
 
-    // Progress calculations
     get totalFields() { 
         return this.fieldsArray.length; 
     }
@@ -1414,8 +1155,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             : 0;
     }
 
-    // ========== SESSION STORAGE METHODS ==========
-    
     generateSessionKey() {
         const recordId = this.sourceRecordId || 'new';
         const externalFormId = this.externalFormId || 'default';
@@ -1427,7 +1166,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         const fieldValues = {};
         const inputFields = this.template.querySelectorAll('lightning-input-field');
         inputFields.forEach(field => {
-            // Save all field values (including boolean false) for complete form state preservation
             if (field.value != null) {
                 fieldValues[field.fieldName] = field.value;
             }
@@ -1462,6 +1200,7 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
+    // Restore form data from session storage after page refresh
     loadFormData() {
         try {
             if (!this.selectedForm || !this.selectedObject) return;
@@ -1472,11 +1211,10 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             if (savedData) {
                 const sessionData = JSON.parse(savedData);
                 
-                // Validate data structure
+                // Validate saved data matches current form configuration
                 if (sessionData.formId === this.selectedForm && 
                     sessionData.objectApiName === this.selectedObject) {
                     
-                    // Wait for form to render then populate fields
                     Promise.resolve().then(() => {
                         this.populateFieldsFromStorage(sessionData);
                     });
@@ -1487,24 +1225,22 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
     
+    // Populate form fields from restored session data (handles all data types including boolean false)
     populateFieldsFromStorage(sessionData) {
         const inputFields = this.template.querySelectorAll('lightning-input-field');
         const fieldValues = sessionData.fieldValues || {};
         const savedFilledFields = sessionData.filledFields || [];
         
         inputFields.forEach(field => {
-            // Check if field exists in saved values (using in operator to handle boolean false)
             if (field.fieldName in fieldValues) {
                 const value = fieldValues[field.fieldName];
                 field.value = value;
             }
         });
         
-        // Restore the exact filled fields that were saved (don't reconstruct from values)
         this.filledFields = new Set(savedFilledFields);
         this.updateStepProgress();
         
-        // Update field styling for restored values individually (avoid bulk updates after refresh)
         Promise.resolve().then(() => {
             this.updateIndividualFieldStyling();
         });
@@ -1521,17 +1257,12 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // ========== AUTO-POPULATION METHODS ==========
-    
     async autoPopulateContactFields() {
         try {
             if (!this.contactId || !this.fieldsArray) {
                 return;
             }
             
-            console.log('SHSFORM: ','Auto-populating contact fields for contact ID:', this.contactId);
-            
-            // Check if form has Contact or Account fields
             const hasContactField = this.fieldsArray.some(field => 
                 field.apiName === 'ContactId' || field.apiName === 'Contact__c'
             );
@@ -1540,22 +1271,15 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             );
             
             if (!hasContactField && !hasAccountField) {
-                console.log('SHSFORM: ','No Contact or Account fields found in form - skipping auto-population');
                 return;
             }
             
-            // Fetch contact and account data
             const contactData = await getContactAndAccountData({ contactId: this.contactId });
-            console.log('SHSFORM: ','Retrieved contact data:', contactData);
-            
-            // Wait for form to render
             await Promise.resolve();
             
-            // Auto-populate fields
             const fieldsToPopulate = {};
             
             if (hasContactField && contactData.contactId) {
-                // Try common Contact field names
                 if (this.fieldsArray.some(field => field.apiName === 'ContactId')) {
                     fieldsToPopulate.ContactId = contactData.contactId;
                 }
@@ -1565,7 +1289,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
             }
             
             if (hasAccountField && contactData.accountId) {
-                // Try common Account field names
                 if (this.fieldsArray.some(field => field.apiName === 'AccountId')) {
                     fieldsToPopulate.AccountId = contactData.accountId;
                 }
@@ -1574,14 +1297,11 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                 }
             }
             
-            // Populate the fields
             if (Object.keys(fieldsToPopulate).length > 0) {
                 this.populateFormFields(fieldsToPopulate);
-                // Update styling for auto-populated fields individually (avoid bulk updates)
                 Promise.resolve().then(() => {
                     this.updateIndividualFieldStyling();
                 });
-                console.log('SHSFORM: ','Auto-populated fields:', fieldsToPopulate);
             }
             
         } catch (error) {
@@ -1589,11 +1309,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         }
     }
 
-    // ========== UTILITY METHODS ==========
-
+    // Preserve original form creation time for draft continuity
     getFormCreationTime() {
         if (this.isEditMode) {
-            // If editing, preserve existing creation time
             try {
                 const existingData = sessionStorage.getItem(this.generateSessionKey());
                 if (existingData) {
@@ -1601,10 +1319,9 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
                     return parsedData.creationTime || Date.now();
                 }
             } catch (error) {
-                console.warn('Error getting existing creation time:', error);
+                console.error('Error getting existing creation time:', error);
             }
         }
-        // If new form, use current time
         return Date.now();
     }
 
@@ -1625,7 +1342,6 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return 'An unknown error occurred';
     }
 
-    // Getter for combined Object Name / Form Name display
     get selectedFormDisplayName() {
         if (this.selectedObject && this.selectedFormName) {
             return `${this.selectedObject} / ${this.selectedFormName}`;
@@ -1633,27 +1349,21 @@ export default class DynamicCreatorWithDropdown extends NavigationMixin(Lightnin
         return this.selectedFormName || '';
     }
 
-    // Getter for record type ID - returns null if record type is Master
     get effectiveRecordTypeId() {
-        // Don't set record type ID for Master record types
         if (this.recordTypeName === 'Master' || this.recordTypeName === 'master') {
             return null;
         }
         return this.recordTypeId;
     }
 
-    // Getter to control delete button visibility - only show when editing draft but not in update mode
     get showDeleteButton() {
         return this.isEditingDraft && !this.isUpdateMode;
     }
 
-    // Getter to control draft button visibility - hide when in update mode
     get showDraftButton() {
-        // Show draft button when we have a selected form and not in update mode
         return this.selectedForm && !this.isUpdateMode;
     }
 
-    // Dynamic modal text based on context
     get modalTitle() {
         return this.modalContext === 'back' ? 'Confirm Back' : 'Confirm Cancel';
     }

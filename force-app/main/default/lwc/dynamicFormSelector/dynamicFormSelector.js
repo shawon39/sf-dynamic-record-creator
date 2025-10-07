@@ -5,19 +5,17 @@ import updateActiveForm from '@salesforce/apex/TestLWCConnection.updateActiveFor
 import TRANSCRIPTMC from "@salesforce/messageChannel/rocketphone__TRANSCRIPTMC__c";
 import { MessageContext, subscribe } from 'lightning/messageService';
 
-// Import DraftForm service methods
 import getAllDraftForms from '@salesforce/apex/DraftFormService.getAllDraftForms';
 
 export default class DynamicFormSelector extends NavigationMixin(LightningElement) {
     @wire(MessageContext)
     context;
 
-    @api recordId; // Automatically populated when component is on a record page
+    @api recordId;
     @track forms = [];
     @track isLoading = true;
-    @track sourceRecordId; // Record ID to pass for navigation back
+    @track sourceRecordId;
     
-    // Dashboard forms data - now dynamic from session storage
     @track dashboardForms = [];
     @track isDashboardVisible = true;
 
@@ -27,47 +25,43 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     connectedCallback() {
         this.subscribeTranscriptMC();
 
-        // Set initial sourceRecordId if recordId is available
         if (this.recordId) {
             this.sourceRecordId = this.recordId;
         }
         
-        // Load dashboard forms from session storage
         this.loadDashboardForms();
     }
 
+    // Subscribe to voice/chat transcript messages to link forms with call records
     subscribeTranscriptMC() {
         if (this.transcriptSubscription) {
             return;
         }
         this.transcriptSubscription = subscribe(this.context, TRANSCRIPTMC, (message) => {
             this.handleTranscriptMessage(message);
-            console.log('DynamicFormSelector Received TRANSCRIPTMC Message:', message);
         });
     }
 
+    // Track active call record ID for form association
     async handleTranscriptMessage(message) {
         try {
             if (message?.callRecordId && (this.currentCallRecordId === null || this.currentCallRecordId === '' || message?.callRecordId !== this.currentCallRecordId)) {
                 this.currentCallRecordId = message?.callRecordId;
-                console.log('DynamicFormSelector this.currentCallRecordId:', this.currentCallRecordId);
             }
         } catch (rpBotError) {
             console.error('DynamicFormSelector Error in handleTranscriptMessage:', rpBotError);
         }
     }
 
-    // Read URL params to capture source record ID, but prioritize @api recordId
+    // Parse URL parameters to capture source record context
     @wire(CurrentPageReference)
     setCurrentPageReference(pageRef) {
         try {
             const state = pageRef?.state || {};
             const attributes = pageRef?.attributes || {};
             
-            // Prioritize @api recordId (from record page), then URL params
+            // Prioritize @api recordId from record page over URL parameters
             this.sourceRecordId = this.recordId || state.c__recordId || state.recordId || attributes.recordId || '';
-            
-            // Refresh dashboard when returning from form editor
             this.loadDashboardForms();
         } catch (e) {
             console.error('Error reading URL params', e);
@@ -79,7 +73,6 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         this.isLoading = false;
         if (data) {
             this.forms = data;
-            console.log('dynamicFormSelector 1 this.forms', JSON.stringify(this.forms?.[0]));
         } else if (error) {
             console.error('Error loading forms', error);
             this.forms = [];
@@ -102,13 +95,11 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         return this.isDashboardVisible ? 'Collapse dashboard' : 'Expand dashboard';
     }
 
-    // Dashboard forms getter with stable numbering based on creation order
+    // Transform dashboard forms with stable numbering for multiple instances of same form type
     get formList() {
-        // Group forms by type and assign stable numbers based on creation order
         const formsByType = {};
         const formNumbers = new Map();
         
-        // Group forms by type
         this.dashboardForms.forEach(form => {
             const formType = form.id;
             if (!formsByType[formType]) {
@@ -117,22 +108,19 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
             formsByType[formType].push(form);
         });
         
-        // Assign numbers based on creation order for each form type
+        // Assign stable numbers based on creation order (first created = 1, second = 2, etc.)
         Object.keys(formsByType).forEach(formType => {
             const formsOfThisType = formsByType[formType];
             
             if (formsOfThisType.length > 1) {
-                // Sort by creation time to assign stable numbers: first created = 1, second = 2, etc.
                 const sortedByCreation = [...formsOfThisType].sort((a, b) => a.creationTime - b.creationTime);
                 
-                // Assign numbers: first form = 1, second form = 2, etc.
                 sortedByCreation.forEach((form, index) => {
                     formNumbers.set(form.externalFormId, index + 1);
                 });
             }
         });
         
-        // Return forms with correct numbering (keeping display order as-is)
         return this.dashboardForms.map(form => {
             const formType = form.id;
             const totalOfThisType = formsByType[formType].length;
@@ -162,39 +150,30 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         }
     }
 
+    // Navigate to new form instance with unique ID and call context
     async handleNavigate(event) {
         const formId = event.currentTarget?.dataset?.id;
         if (!formId) return;
 
-        console.log('dynamicFormSelectore formId:: ', formId);
-        
-        const externalFormId = this.generateUniqueFormId(); // Generate new UUID for new form
-
-        // Find the matching form from this.forms based on formId and get its fieldAnalysisDetails
+        const externalFormId = this.generateUniqueFormId();
         const selectedForm = this.forms.find(form => form.id === formId);
-        console.log('dynamicFormSelector selectedForm:', selectedForm);
-        // fieldAnalysisDetails is already a JSON string from database, no need to stringify again
         let formStructureJsonString = selectedForm?.fieldAnalysisDetails || '{}';
-        console.log('dynamicFormSelector Selected form fieldAnalysisDetails:', formStructureJsonString);
 
-        // Build request object properly to avoid JSON escaping issues
+        // Notify external integration (RocketPhone) about active form
         const requestObject = {
             callRecordId: this.currentCallRecordId,
             formStructureJson: formStructureJsonString,
             id: externalFormId
         };
         let requestStringActiveForm = JSON.stringify(requestObject);
-        console.log('dynamicFormSelector requestStringActiveForm:', requestStringActiveForm);
-        let responseOfUpdateActiveForm = await updateActiveForm({ requestString: requestStringActiveForm });
-        console.log('dynamicFormSelectore responseOfUpdateActiveForm: ', responseOfUpdateActiveForm);
+        await updateActiveForm({ requestString: requestStringActiveForm });
         
         const navigationState = {
             c__formId: formId,
-            c__externalFormId: externalFormId, // New parameter for unique form instances
-            c__mode: 'new' // Explicit mode flag for new forms
+            c__externalFormId: externalFormId,
+            c__mode: 'new'
         };
         
-        // Include source record ID if available for navigation back
         if (this.sourceRecordId) {
             navigationState.c__recordId = this.sourceRecordId;
         }
@@ -208,14 +187,11 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         });
     }
 
-    // ========== DRAFT FORM STORAGE METHODS ==========
-    
+    // Load draft and completed forms from Salesforce (replaces session storage)
     async loadDashboardForms() {
         try {
-            // Call Apex to get draft forms (filtered by recordId if available)
             const draftForms = await getAllDraftForms({ recordId: this.recordId || null });
             
-            // Transform to existing dashboard format
             const transformedForms = draftForms.map(draft => {
                 let formData = {};
                 try {
@@ -227,25 +203,25 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                 
                 return {
                     id: draft.Form_ID__c,
-                    draftRecordId: draft.Id, // NEW: DraftForm__c record ID
+                    draftRecordId: draft.Id,
                     externalFormId: draft.External_Form_ID__c,
-                    sessionKey: `draft-${draft.Id}`, // Keep for compatibility
+                    sessionKey: `draft-${draft.Id}`,
                     objectName: formData.objectName || 'Unknown',
                     formName: formData.formName || 'Untitled Form',
                     progress: formData.progress || 0,
-                    status: draft.Status__c || 'Draft', // NEW: Status field
-                    createdRecordId: draft.Created_Record_ID__c, // NEW: Created record ID for updates
+                    status: draft.Status__c || 'Draft',
+                    createdRecordId: draft.Created_Record_ID__c,
                     recordId: draft.Source_Record_ID__c,
                     lastModified: new Date(draft.LastModifiedDate).getTime(),
                     creationTime: new Date(draft.CreatedDate).getTime(),
-                    createdBy: draft.CreatedBy?.Name || 'Unknown User', // NEW: Creator info
-                    createdDate: draft.CreatedDate, // NEW: Creation date
+                    createdBy: draft.CreatedBy?.Name || 'Unknown User',
+                    createdDate: draft.CreatedDate,
                     fieldValues: formData.fieldValues || {},
                     totalFields: formData.totalFields || 0
                 };
             });
             
-            // Sort by last modified (most recent first) for display
+            // Sort by last modified (most recent first)
             transformedForms.sort((a, b) => b.lastModified - a.lastModified);
             
             this.dashboardForms = transformedForms;
@@ -253,18 +229,15 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         } catch (error) {
             console.error('Error loading draft forms:', error);
             this.dashboardForms = [];
-            
-            // Fallback to sessionStorage if Apex fails
-            this.loadSessionStorageForms();
+            this.loadSessionStorageForms(); // Fallback to session storage
         }
     }
     
-    // Fallback method for backward compatibility
+    // Fallback method to load forms from session storage (legacy support)
     loadSessionStorageForms() {
         try {
             const sessionForms = [];
             
-            // Iterate through session storage to find form data
             for (let i = 0; i < sessionStorage.length; i++) {
                 const key = sessionStorage.key(i);
                 
@@ -296,9 +269,7 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                 }
             }
             
-            // Sort by last modified (most recent first) for display
             sessionForms.sort((a, b) => b.lastModified - a.lastModified);
-            
             this.dashboardForms = sessionForms;
             
         } catch (error) {
@@ -307,33 +278,30 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
         }
     }
     
+    // Navigate to edit existing draft or update completed form
     handleEditForm(event) {
         const draftRecordId = event.currentTarget.dataset.draftRecordId;
         const sessionKey = event.currentTarget.dataset.sessionKey;
         
         if (draftRecordId && draftRecordId.startsWith('draft-')) {
-            // This is a DraftForm__c record - use new navigation
             const actualDraftId = draftRecordId.replace('draft-', '');
-            
-            // Find the form data from dashboardForms
             const formData = this.dashboardForms.find(form => form.draftRecordId === actualDraftId);
             
             if (formData) {
                 const navigationState = {
                     c__formId: formData.id,
-                    c__draftRecordId: actualDraftId, // NEW: Pass draft record ID
+                    c__draftRecordId: actualDraftId,
                     c__mode: 'edit'
                 };
                 
-                // Include source record ID if available
                 if (formData.recordId) {
                     navigationState.c__recordId = formData.recordId;
                 }
                 
-                // Include created record ID if this is a "Created" status draft (for updates)
+                // If form was completed, set mode to 'update' to modify the created record
                 if (formData.status === 'Created' && formData.createdRecordId) {
                     navigationState.c__createdRecordId = formData.createdRecordId;
-                    navigationState.c__mode = 'update'; // Change mode to 'update'
+                    navigationState.c__mode = 'update';
                 }
                 
                 this[NavigationMixin.Navigate]({
@@ -345,7 +313,6 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                 });
             }
         } else {
-            // Fallback to old sessionStorage logic
             const sessionData = this.getSessionData(sessionKey);
             
             if (sessionData) {
@@ -355,7 +322,6 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
                     c__mode: 'edit'
                 };
                 
-                // Include source record ID if available
                 if (sessionData.recordId) {
                     navigationState.c__recordId = sessionData.recordId;
                 }

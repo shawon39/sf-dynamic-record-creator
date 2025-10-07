@@ -6,19 +6,20 @@ import analyzeFieldsAndGenerateJSONReport from '@salesforce/apex/FieldService.an
 
 export default class AnalysisReview extends NavigationMixin(LightningElement) {
     @api analysisData;
-    @api analysisId; // For edit mode - ID of the analysis being edited
-    @api isEditMode = false; // Flag to indicate edit mode
+    @api analysisId;
+    @api isEditMode = false;
     
     @track isSaving = false;
-    @track isAnalyzing = true; // Start with analysis
+    @track isAnalyzing = true;
     @track autoAnalysisReport = '';
     @track autoFieldAnalysisDetails = [];
     
+    // Auto-trigger field analysis when component loads
     async connectedCallback() {
-        // Auto-trigger field analysis when component loads
         await this.performFieldAnalysis();
     }
     
+    // Call AI service to analyze selected fields and generate report
     async performFieldAnalysis() {
         if (!this.analysisData?.allSelectedFields || this.analysisData.allSelectedFields.length === 0) {
             this.isAnalyzing = false;
@@ -28,7 +29,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         try {
             this.isAnalyzing = true;
             
-            // Prepare sections data for the new JSON method
             const sectionsData = this.analysisData?.sections?.map(section => ({
                 stepNumber: section.stepNumber,
                 text: section.text,
@@ -58,7 +58,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         }
     }
     
-    // Simple computed properties for display
     get selectedObject() {
         return this.analysisData?.selectedObject || '';
     }
@@ -79,11 +78,11 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         return this.selectedFields.join(', ');
     }
     
-    // Sections (replacing instructions)
+    // Transform sections data for display with field groupings
     get sections() {
         const sections = this.analysisData?.sections || [];
         return sections.map(section => ({
-            sectionName: section.text, // Section name from instruction text
+            sectionName: section.text,
             sectionOrder: section.stepNumber,
             selectedFields: section.fields || [],
             fieldsText: section.fields ? section.fields.join(', ') : '',
@@ -103,7 +102,7 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         return this.autoAnalysisReport || '';
     }
     
-    // Group field analysis by sections
+    // Group field analysis details by section for organized display
     get sectionedFieldAnalysis() {
         const analysis = [];
         
@@ -138,12 +137,11 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         return this.isSaving ? 'utility:spinner' : 'utility:save';
     }
     
-    // Save the complete analysis
+    // Save or update analysis configuration with sections and field mappings
     async handleSaveAnalysis() {
         this.isSaving = true;
         
         try {
-            // Validate required data
             if (!this.selectedObject) {
                 throw new Error('Selected object is required');
             }
@@ -152,7 +150,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
                 throw new Error('Selected fields are required');
             }
             
-            // Prepare section data for Apex (reusing instruction format)
             const sectionsData = this.sections.map(section => ({
                 stepNumber: section.sectionOrder,
                 text: section.sectionName,
@@ -162,8 +159,8 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
             let analysisId;
             let message;
             
+            // Edit mode updates existing analysis, otherwise create new
             if (this.isEditMode && this.analysisId) {
-                // Update existing analysis
                 analysisId = await updateCompleteAnalysisWithJSON({
                     analysisId: this.analysisId,
                     objectName: this.selectedObject,
@@ -178,7 +175,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
                     ? `Analysis configuration with ${this.sectionsCount} section(s) updated successfully!`
                     : `Analysis configuration updated successfully!`;
             } else {
-                // Create new analysis
                 analysisId = await createCompleteAnalysisWithJSON({
                     objectName: this.selectedObject,
                     recordTypeName: this.selectedRecordTypeName,
@@ -193,12 +189,10 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
                     : `Analysis configuration saved successfully!`;
             }
             
-            // Reset saving state immediately on success
             this.isSaving = false;
             
-            // Handle post-save navigation
+            // In edit mode, navigate to record detail; in new mode, notify parent
             if (this.isEditMode && this.analysisId) {
-                // Navigate back to the record in edit mode
                 this[NavigationMixin.Navigate]({
                     type: 'standard__recordPage',
                     attributes: {
@@ -208,7 +202,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
                     }
                 });
             } else {
-                // Dispatch success event for new records (existing behavior)
                 this.dispatchEvent(new CustomEvent('analysissaved', {
                     detail: {
                         message: message,
@@ -219,11 +212,7 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
             
         } catch (error) {
             console.error('Error saving analysis:', error);
-            
-            // Reset saving state on error
             this.isSaving = false;
-            
-            // Dispatch error event
             this.dispatchEvent(new CustomEvent('error', {
                 detail: { 
                     message: 'Failed to save analysis: ' + (error.body?.message || error.message || 'Unknown error')
@@ -232,7 +221,6 @@ export default class AnalysisReview extends NavigationMixin(LightningElement) {
         }
     }
     
-    // Handle navigation back to instructions
     handleGoBack() {
         this.dispatchEvent(new CustomEvent('goback'));
     }

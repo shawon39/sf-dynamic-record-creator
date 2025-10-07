@@ -7,13 +7,12 @@ export default class SectionBuilder extends LightningElement {
     @api selectedRecordTypeName;
     @api initialSections;
     
-    @track availableFields = []; // All object fields
-    @track allocatedFields = []; // Fields already assigned to sections
+    @track availableFields = [];
+    @track allocatedFields = [];
     @track sections = [];
-    @track currentSection = null; // Section being created/edited
+    @track currentSection = null;
     @track isLoadingFields = false;
     
-    // Tracking for UI state
     nextSectionOrder = 1;
     nextTempId = 1;
     @track isInitialized = false;
@@ -23,6 +22,7 @@ export default class SectionBuilder extends LightningElement {
         this.initializeFromParentData();
     }
     
+    // Load all available fields for selected object
     async loadObjectFields() {
         if (!this.selectedObject) return;
         
@@ -41,7 +41,7 @@ export default class SectionBuilder extends LightningElement {
         }
     }
     
-    // Initialize component with existing sections from parent
+    // Restore existing sections when editing (only once)
     initializeFromParentData() {
         if (!this.isInitialized && this.initialSections && this.initialSections.length > 0) {
             this.sections = this.initialSections.map(section => ({
@@ -53,20 +53,18 @@ export default class SectionBuilder extends LightningElement {
                 isEditing: false
             })).sort((a, b) => a.sectionOrder - b.sectionOrder);
             
-            // Update allocated fields
+            // Track which fields are already allocated to sections
             this.allocatedFields = [];
             this.sections.forEach(section => {
                 this.allocatedFields.push(...section.selectedFields);
             });
             
-            // Update next section order
             this.nextSectionOrder = Math.max(...this.sections.map(s => s.sectionOrder)) + 1;
-            
             this.isInitialized = true;
         }
     }
     
-    // Get fields not yet allocated to any section
+    // Return fields not yet assigned to any section
     get unallocatedFields() {
         return this.availableFields.filter(field => 
             !this.allocatedFields.includes(field.value)
@@ -112,6 +110,7 @@ export default class SectionBuilder extends LightningElement {
         };
     }
     
+    // Validate and save new/edited section
     handleSaveSection() {
         const sectionNameInput = this.template.querySelector('[data-section-name]');
         const sectionFieldsInput = this.template.querySelector('[data-section-fields]');
@@ -134,17 +133,15 @@ export default class SectionBuilder extends LightningElement {
             return;
         }
         
-        // Check for duplicate section name
+        // Prevent duplicate section names
         const existingSectionNames = this.sections.map(s => s.sectionName.toLowerCase());
         if (existingSectionNames.includes(sectionName.trim().toLowerCase())) {
             this.dispatchErrorEvent('Section name already exists');
             return;
         }
         
-        // Add fields to allocated list
         this.allocatedFields = [...this.allocatedFields, ...selectedFields];
         
-        // Add section to list
         const newSection = {
             ...this.currentSection,
             sectionName: sectionName.trim(),
@@ -153,31 +150,28 @@ export default class SectionBuilder extends LightningElement {
             isEditing: false
         };
         
-        // Add section and sort by sectionOrder to maintain proper order
         this.sections = [...this.sections, newSection].sort((a, b) => a.sectionOrder - b.sectionOrder);
         this.currentSection = null;
     }
     
     handleCancelSection() {
-        // Reset next section order if we're canceling
         this.nextSectionOrder--;
         this.currentSection = null;
     }
     
+    // Load section for editing (deallocates its fields)
     handleEditSection(event) {
         const sectionId = event.target.dataset.id;
         const sectionToEdit = this.sections.find(s => s.id === sectionId);
         
         if (sectionToEdit) {
-            // Return fields to available pool temporarily
+            // Free up fields for reallocation
             this.allocatedFields = this.allocatedFields.filter(field => 
                 !sectionToEdit.selectedFields.includes(field)
             );
             
-            // Remove from sections list temporarily
             this.sections = this.sections.filter(s => s.id !== sectionId);
             
-            // Set as current section for editing
             this.currentSection = {
                 ...sectionToEdit,
                 isEditing: true
@@ -185,20 +179,20 @@ export default class SectionBuilder extends LightningElement {
         }
     }
     
+    // Remove section and free its fields
     handleDeleteSection(event) {
         const sectionId = event.target.dataset.id;
         const sectionToDelete = this.sections.find(s => s.id === sectionId);
         
         if (sectionToDelete) {
-            // Return fields to available pool
+            // Free up fields from deleted section
             this.allocatedFields = this.allocatedFields.filter(field => 
                 !sectionToDelete.selectedFields.includes(field)
             );
             
-            // Remove section
             this.sections = this.sections.filter(s => s.id !== sectionId);
             
-            // Renumber sections
+            // Renumber sections after deletion
             this.sections = this.sections.map((section, index) => ({
                 ...section,
                 sectionOrder: index + 1,
@@ -209,6 +203,7 @@ export default class SectionBuilder extends LightningElement {
         }
     }
     
+    // Reorder section up in display order
     handleMoveUp(event) {
         const sectionId = event.target.dataset.id;
         const currentIndex = this.sections.findIndex(s => s.id === sectionId);
@@ -217,7 +212,7 @@ export default class SectionBuilder extends LightningElement {
             const sections = [...this.sections];
             [sections[currentIndex - 1], sections[currentIndex]] = [sections[currentIndex], sections[currentIndex - 1]];
             
-            // Renumber sections
+            // Renumber after reordering
             this.sections = sections.map((section, index) => ({
                 ...section,
                 sectionOrder: index + 1,
@@ -226,6 +221,7 @@ export default class SectionBuilder extends LightningElement {
         }
     }
     
+    // Reorder section down in display order
     handleMoveDown(event) {
         const sectionId = event.target.dataset.id;
         const currentIndex = this.sections.findIndex(s => s.id === sectionId);
@@ -234,7 +230,7 @@ export default class SectionBuilder extends LightningElement {
             const sections = [...this.sections];
             [sections[currentIndex], sections[currentIndex + 1]] = [sections[currentIndex + 1], sections[currentIndex]];
             
-            // Renumber sections
+            // Renumber after reordering
             this.sections = sections.map((section, index) => ({
                 ...section,
                 sectionOrder: index + 1,
@@ -243,26 +239,24 @@ export default class SectionBuilder extends LightningElement {
         }
     }
     
+    // Validate and send sections to parent for review
     handleContinue() {
         if (this.sections.length === 0) {
             this.dispatchErrorEvent('Please create at least one section');
             return;
         }
         
-        // Get all selected fields across all sections
         const allSelectedFields = [];
         this.sections.forEach(section => {
             allSelectedFields.push(...section.selectedFields);
         });
         
-        // Prepare section data for backend (reuse instruction format)
         const sectionsForBackend = this.sections.map(section => ({
             stepNumber: section.sectionOrder,
-            text: section.sectionName, // Section name stored as instruction text
+            text: section.sectionName,
             fields: section.selectedFields
         }));
         
-        // Dispatch event
         const sectionsEvent = new CustomEvent('sectionscreated', {
             detail: {
                 sections: sectionsForBackend,
@@ -272,23 +266,20 @@ export default class SectionBuilder extends LightningElement {
         this.dispatchEvent(sectionsEvent);
     }
     
+    // Sync current sections when navigating back
     handleGoBack() {
-        // Sync current sections to parent before going back (if any exist)
         if (this.sections.length > 0) {
-            // Get all selected fields across all sections
             const allSelectedFields = [];
             this.sections.forEach(section => {
                 allSelectedFields.push(...section.selectedFields);
             });
             
-            // Prepare section data for backend (reuse instruction format)
             const sectionsForBackend = this.sections.map(section => ({
                 stepNumber: section.sectionOrder,
                 text: section.sectionName,
                 fields: section.selectedFields
             }));
             
-            // Dispatch sections sync event (without navigation)
             const syncEvent = new CustomEvent('sectionssync', {
                 detail: {
                     sections: sectionsForBackend,
@@ -298,12 +289,10 @@ export default class SectionBuilder extends LightningElement {
             this.dispatchEvent(syncEvent);
         }
         
-        // Then dispatch back event
         const backEvent = new CustomEvent('goback');
         this.dispatchEvent(backEvent);
     }
     
-    // Utility methods
     dispatchErrorEvent(message) {
         const errorEvent = new CustomEvent('error', {
             detail: { message }
