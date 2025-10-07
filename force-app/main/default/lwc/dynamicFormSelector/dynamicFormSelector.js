@@ -212,8 +212,8 @@ export default class DynamicFormSelector extends NavigationMixin(LightningElemen
     
     async loadDashboardForms() {
         try {
-            // Call Apex to get all draft forms (shared access)
-            const draftForms = await getAllDraftForms();
+            // Call Apex to get draft forms (filtered by recordId if available)
+            const draftForms = await getAllDraftForms({ recordId: this.recordId || null });
             
             // Transform to existing dashboard format
             const transformedForms = draftForms.map(draft => {

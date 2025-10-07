@@ -17,7 +17,7 @@ public with sharing class FormSelectorController {
     @AuraEnabled(cacheable=true)
     public static List<FormBadge> getForms() {
         try {
-            // Build SOQL for user-mode query
+            // Build SOQL for user-mode query - returns ALL active forms
             String soql = 'SELECT Id, Name, Object_Name__c, Record_Type_Name__c, Field_Analysis_Details__c ' +
                           'FROM Dynamic_Field_Analysis__c ' +
                           'WHERE Name != null AND Object_Name__c != null AND IsActive__c = true ' +

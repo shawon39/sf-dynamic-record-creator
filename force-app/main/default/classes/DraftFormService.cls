@@ -78,18 +78,27 @@ public with sharing class DraftFormService {
     }
     
     /**
-     * Get all draft forms (shared access - no user filtering)
-     * @return List<DraftForm__c> - All draft forms with creator info
+     * Get all draft forms (shared access - optional filtering by Source_Record_ID__c)
+     * @param recordId - Optional record ID to filter drafts by Source_Record_ID__c
+     * @return List<DraftForm__c> - Draft forms with creator info
      */
     @AuraEnabled(cacheable=false)
-    public static List<DraftForm__c> getAllDraftForms() {
+    public static List<DraftForm__c> getAllDraftForms(String recordId) {
         try {
-            return [
-                SELECT Id, Name, External_Form_ID__c, Form_ID__c, Source_Record_ID__c, 
-                       Form_Data_JSON__c, Status__c, Created_Record_ID__c, CreatedBy.Name, CreatedDate, LastModifiedDate
-                FROM DraftForm__c 
-                ORDER BY LastModifiedDate DESC
-            ];
+            // Build dynamic SOQL query
+            String soql = 'SELECT Id, Name, External_Form_ID__c, Form_ID__c, Source_Record_ID__c, ' +
+                          'Form_Data_JSON__c, Status__c, Created_Record_ID__c, CreatedBy.Name, CreatedDate, LastModifiedDate ' +
+                          'FROM DraftForm__c ';
+            
+            // Add recordId filter if provided
+            if (String.isNotBlank(recordId)) {
+                System.debug('DraftFormService.getAllDraftForms: Filtering drafts for recordId: ' + recordId);
+                soql += 'WHERE Source_Record_ID__c = :recordId ';
+            }
+            
+            soql += 'ORDER BY LastModifiedDate DESC';
+            
+            return Database.query(soql);
         } catch (Exception e) {
             System.debug('Error getting draft forms: ' + e.getMessage());
             throw new AuraHandledException('Error retrieving drafts: ' + e.getMessage());
